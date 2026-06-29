@@ -1,25 +1,24 @@
-import os 
-from pathlib import Path
-from dotenv import load_dotenv
-load_dotenv()
+from .Storage import get_storage
+
+Fileoperation=get_storage()
 
 def CreateDir(Userid,Directory,Filename):
     try:
-        DIR=Path(os.getenv("DestinationFolder"))   #FEZ
-        # DIR=Path(r"D:\CODE\PYTHON\CODE\Projects\Personaldrive\test")
-        #Check if Userid exists
-        Userid=str(Userid)    
+        DIR=Fileoperation.source
+        Userid=str(Userid)
         if Directory is None:
-            DIR=os.path.join(DIR,Userid)
+            DIR=Fileoperation.joinpath(DIR,Userid)
         else:
-            DIR=os.path.join(DIR,Userid,Directory)
-        # print(DIR)
-        Path(DIR).mkdir(parents=True, exist_ok=True) #Dir is created 
-        Filename=Path(Filename).name
-        # print(Filename)
-        return Path(os.path.join(DIR,Filename))
+            DIR=Fileoperation.joinpath(DIR,[Userid,Directory])
+        Fileoperation.Createfolder(DIR)
+        Filename=Fileoperation.getfilename(Filename)
+        return str(Fileoperation.joinpath(DIR,Filename)) #Returnt the paths where the file is supposed to store
+    
+            
+
     except Exception as e:
-        return 0
+        return 0    
+
 
     
 if __name__=="__main__":
