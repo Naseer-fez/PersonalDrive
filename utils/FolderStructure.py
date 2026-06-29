@@ -1,11 +1,11 @@
 # import os 
 # from pathlib import Path
 # import json
-from Storage import get_storage
+from .Storage import get_storage
 from dotenv import load_dotenv
 load_dotenv()
-
-File=get_storage()
+import time
+Fileoperation=get_storage()
 class FolderStructure:
     def __init__(self,userid:str):
         # self.BASEDIR=os.path.join(os.getenv("DestinationFolder"),userid) or r"D:\CODE\PYTHON"
@@ -19,36 +19,35 @@ class FolderStructure:
     def Folderdesign(self):
         # Userdir=os.path.join(BASEDIR,Userid) Real userid
         # Userdir=File.getfilepath(userid=self.userid) 
-        folderpath=File.getfilepath(userid=self.userid,folderreq=1)
+        folderpath=Fileoperation.getfilepath(userid=self.userid,folderreq=1)
         # print(os.listdir(Userdir)
         
-        self.Directory=self.FolderTraverse(Foldernames=File.Allfiles(folderpath),Folderpath=folderpath)
+        self.Directory=self.FolderTraverse(Foldernames=Fileoperation.Allfiles(folderpath),Folderpath=folderpath)
         
-        # Userdetails=os.getenv("Userfolder") or r"D:\CODE\PYTHON\CODE\Projects\Personaldrive\userdetails"
-        # UserFile=os.path.join(Userdetails,self.userid)
-        # with open(file=f"{UserFile}.json",mode="w") as Output:
-        #     json.dump(self.Directory,Output,indent=4)
-        
-        File.jsonwrite(self.userid,data=self.Directory,fileindent=4)
+        Fileoperation.jsonwrite(self.userid,data=self.Directory,fileindent=4)
     def FolderTraverse(self,Foldernames,Folderpath):
             # print(Foldernames)
             Data=[]
             for Folder in Foldernames:
-                Dirpath=File.joinpath(Folderpath,Folder) 
+                Dirpath=Fileoperation.joinpath(Folderpath,Folder) 
   
-                if File.isdirectory(Dirpath):
+                if Fileoperation.isdirectory(Dirpath):
                     Data.append({
                         "Name":str(Folder),
                         "type":"Folder",
                         "path":str(Dirpath),
                         "children":str(self.FolderTraverse(Folderpath=Dirpath,
-                                                       Foldernames=File.Allfiles(Dirpath))) })
+                                                       Foldernames=Fileoperation.Allfiles(Dirpath))) })
                     
                 else:
+                    currenttime=int(time.time())
                     Data.append({
                         "Name":str(Folder),
                         "path":str(Dirpath),
-                        "Type":str(File.getextenstion(Dirpath))
+                        "type":str(Fileoperation.getextenstion(Dirpath)),
+                        "size":Fileoperation.Filesize(userid=self.userid,filepath=Folder),
+                        "createdtime":currenttime,
+                        "updatedtime":currenttime
                         
                     })
             return Data

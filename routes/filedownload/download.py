@@ -5,43 +5,39 @@ from flask  import Blueprint,jsonify,Response
 import os 
 from dotenv import load_dotenv
 from pathlib import Path
+from utils.Storage import get_storage
+from utils.acceptjson import getjson
 
-load_dotenv()
 downloadbp=Blueprint('Downloadbp',__name__)
 # downloadbp=Flask(__name__)
-
+Fileoperation=get_storage()
 
 # @downloadbp.route("/downloadfile/<int:userid>/",defaults={"folderpath":None,"filepath":None,},methods=["GET"])
-@downloadbp.route("/downloadfile/<int:userid>/<string:filepath>",methods=["GET"]) 
-def Home(userid,filepath):
+@downloadbp.route("/downloadfile/<int:userid>/",methods=["GET"]) 
+@getjson
+def Home(userid,data):
+    filepath=data.get("filepath")
     filepath,filesize,filetype=filedetails(str(userid),filepath)
     if filepath is None:
         return jsonify({"retutn":"WrongFile Inputed Tryahain"}),429
     headerdata={"filesize":filesize,"filetype":filetype}
-    value=Filedownload(filepath)
+    SIZE=os.getenv("size") or 5
+    value=Fileoperation.readdata(filename=filepath,Sizeofdata=SIZE)
     return Response(value,mimetype=filetype,headers=headerdata)
     
     
     
 
 def filedetails(userid,filepath):
-    Source=os.getenv("DestinationFolder") or r"D:/CODE/PYTHON/CODE/Projects/Personaldrive/test"
-    filepath=Path(os.path.join(Source,userid,filepath))
-    if not os.path.exists(filepath):
+    Source=Fileoperation.source 
+    filepath=Fileoperation.joinpath(Source,[str(userid),filepath])  
+    if Fileoperation.isdirectory(filepath):
         return [None]
-    Filesize=os.path.getsize(filepath)
-    Fileextenstion=os.path.splitext(filepath)[1]
+    Filesize=Fileoperation.Filesize(filepath)
+    Fileextenstion=Fileoperation.getextenstion()
     return [filepath,Filesize,Fileextenstion]
 
 
-def Filedownload(filepath):
-        SIZE=int(os.getenv("size")) or 5
-        with open (file=filepath,mode="rb") as output:
-            while True:
-              chunk=output.read(1024*1024*SIZE)
-              if not chunk:
-                  break
-              yield chunk  
 
 
     
