@@ -13,6 +13,7 @@ from routes.fileoperations.deletefile import deletefilebp
 from routes.fileoperations.updatefile import updatefilebp
 from routes.fileoperations.createdir import createbp
 from routes.fileoperations.postionchnage import postionbp
+from routes.filestats.spaceleft import spacebp
 from utils.auth import enableauth
 load_dotenv()
 def Createapp():
@@ -21,7 +22,8 @@ def Createapp():
     CORS(app=app)    
     enableauth(app)
     #Register Blueprints
-    routes=[uploadbp,downloadbp,structurebp,deletefilebp,updatefilebp,createbp,postionbp]
+    routes=[uploadbp,downloadbp,structurebp,deletefilebp,
+            updatefilebp,createbp,postionbp,spacebp]
     for blueprint in routes:
         app.register_blueprint(blueprint)
     
