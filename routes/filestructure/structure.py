@@ -6,7 +6,7 @@ structurebp=Blueprint("structure",__name__)
 
 File=get_storage()
 
-@structurebp.route("/structure/<int:userid>",methods=["GET"])
+@structurebp.route("/structure/<int:userid>/",methods=["GET"])
 def Home(userid):
     structure=Createfilestructure(userid=userid)
     if structure==0:

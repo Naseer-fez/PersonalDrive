@@ -35,19 +35,19 @@ class FolderStructure:
                     Data.append({
                         "Name":str(Folder),
                         "type":"Folder",
-                        "path":str(Dirpath),
-                        "children":str(self.FolderTraverse(Folderpath=Dirpath,
+                        "path":str(Fileoperation.getreativepath(userid=self.userid,filename=Dirpath)),
+                        "children":(self.FolderTraverse(Folderpath=Dirpath,
                                                        Foldernames=Fileoperation.Allfiles(Dirpath))) })
                     
                 else:
                     currenttime=int(time.time())
                     Data.append({
                         "Name":str(Folder),
-                        "path":str(Dirpath),
+                        "path":str(Fileoperation.getreativepath(userid=self.userid,filename=Dirpath)),
                         "type":str(Fileoperation.getextenstion(Dirpath)),
-                        "size":Fileoperation.Filesize(userid=self.userid,filepath=Folder),
-                        "createdtime":currenttime,
-                        "updatedtime":currenttime
+                        "size":int(Fileoperation.Filesize(userid=self.userid,filepath=Dirpath)),
+                        "createdtime":int(currenttime),
+                        "updatedtime":int(currenttime)
                         
                     })
             return Data
@@ -59,7 +59,7 @@ def Createfilestructure(userid):
         FolderStructure(userid=str(userid))
         return 1
     except Exception as e:
-        # print(e)
+        print(e)
         return 0 #User Donot exist
 
  
