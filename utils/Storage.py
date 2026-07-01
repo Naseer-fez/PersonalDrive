@@ -13,7 +13,7 @@ class LocalStorage:
     def getfilepath(self,userid,filename=None,folderreq=0):
         if folderreq==1:
             basedir=self.source
-            basedir=basedir/userid
+            basedir=basedir/str(userid)
             return basedir
         if filename is None: #For json file
             basedir=self.userdetails/str(userid)
@@ -171,7 +171,14 @@ class LocalStorage:
                         break
                     DES.write(Chunk)
         os.remove(source)
-
+    def userexist(self,userid):
+        userpath=(Path(self.source))/str(userid)
+        return [self.isdirectory(userpath),userpath]
+    def getfilestats(self,path):
+        return  Path(path).stat()
+    def filetiming(self,path):
+        stats=self.getfilestats(path)
+        return {"createdtime":int(stats.st_ctime),"updatedtime":int(stats.st_mtime)}
 def get_storage():
     return LocalStorage()
 

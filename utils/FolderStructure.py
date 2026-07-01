@@ -8,30 +8,26 @@ import time
 Fileoperation=get_storage()
 class FolderStructure:
     def __init__(self,userid:str):
-        # self.BASEDIR=os.path.join(os.getenv("DestinationFolder"),userid) or r"D:\CODE\PYTHON"
-        # self.BASEDIR=r"D:\CODE\PYTHON\CODE\Backend"
         self.userid=str(userid)
         self.Directory=[]
+        self.allfiles=dict()
+        self.currenttime=int(time.time())
         self.Folderdesign()
-        # print(self.Directory)
-    # def getbase(userid):
-    #     File
     def Folderdesign(self):
-        # Userdir=os.path.join(BASEDIR,Userid) Real userid
-        # Userdir=File.getfilepath(userid=self.userid) 
-        folderpath=Fileoperation.getfilepath(userid=self.userid,folderreq=1)
-        # print(os.listdir(Userdir)
-        
+        #For folderstructure
+        folderpath=Fileoperation.getfilepath(userid=self.userid,folderreq=1) 
+        filepath=Fileoperation.getfilepath(userid=self.userid,filename=None)
+        statspath=filepath.parent/"stats.json" 
         self.Directory=self.FolderTraverse(Foldernames=Fileoperation.Allfiles(folderpath),Folderpath=folderpath)
-        
-        Fileoperation.jsonwrite(self.userid,data=self.Directory,fileindent=4)
+        Fileoperation.jsonwrite(self.userid,data=self.Directory,fileindent=4)  ##Forfolderstructure
+        print(statspath)
+        Fileoperation.jsonwrite(self.userid,data=self.allfiles,fileindent=4,filepath=statspath)
     def FolderTraverse(self,Foldernames,Folderpath):
-            # print(Foldernames)
             Data=[]
             for Folder in Foldernames:
                 Dirpath=Fileoperation.joinpath(Folderpath,Folder) 
   
-                if Fileoperation.isdirectory(Dirpath):
+                if Fileoperation.isdirectory(Dirpath) :
                     Data.append({
                         "Name":str(Folder),
                         "type":"Folder",
@@ -40,16 +36,27 @@ class FolderStructure:
                                                        Foldernames=Fileoperation.Allfiles(Dirpath))) })
                     
                 else:
-                    currenttime=int(time.time())
+                    
+                    path=str(Fileoperation.getreativepath(userid=self.userid,filename=Dirpath))
+                    stat=Fileoperation.filetiming(Dirpath)
                     Data.append({
                         "Name":str(Folder),
-                        "path":str(Fileoperation.getreativepath(userid=self.userid,filename=Dirpath)),
+                        "path":path,
                         "type":str(Fileoperation.getextenstion(Dirpath)),
                         "size":int(Fileoperation.Filesize(userid=self.userid,filepath=Dirpath)),
-                        "createdtime":int(currenttime),
-                        "updatedtime":int(currenttime)
+                        "createdtime":stat["createdtime"],
+                        "updatedtime":stat["updatedtime"]
                         
                     })
+                    if Folder not in self.allfiles:
+                        self.allfiles[Folder]=[path]
+                    else:
+                        self.allfiles[Folder].append(path)
+                    # self.allfiles.append({
+                    #     "filename":str(Folder),
+                    #     "path":path
+                    # })
+
             return Data
     
 
