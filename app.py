@@ -14,6 +14,7 @@ from routes.fileoperations.updatefile import updatefilebp
 from routes.fileoperations.createdir import createbp
 from routes.fileoperations.postionchnage import postionbp
 from routes.filestats.spaceleft import spacebp
+from routes.filesearch.searchfile import filesearch 
 from utils.auth import enableauth
 load_dotenv()
 def Createapp():
@@ -23,7 +24,7 @@ def Createapp():
     enableauth(app)
     #Register Blueprints
     routes=[uploadbp,downloadbp,structurebp,deletefilebp,
-            updatefilebp,createbp,postionbp,spacebp]
+            updatefilebp,createbp,postionbp,spacebp,filesearch]
     for blueprint in routes:
         app.register_blueprint(blueprint)
     
