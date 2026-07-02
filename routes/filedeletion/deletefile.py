@@ -20,7 +20,7 @@ def Home(userid,data):
     if not operation:
         updatespace(userid=userid,operation=-filesize)
     #The frontend should update the 
-    updatefilestructure(userid=userid,Updates=filename,operation="delete")        
+    updatefilestructure(Userid=userid,Updates=filename,operation="delete")        
     return jsonify({"return":tosend[1]}),200
     
     
@@ -31,7 +31,7 @@ def deletefile(userid,filename,operation,replace=0):
         filesize=Fileoperation.Filesize(userid=userid,filepath=filename)
         if not operation:
             Fileoperation.deletefile(userid=userid,filepath=filename)
-            return [1,"Deleted succesfully",filesize]
+            return [1,"Moved succesfully",filesize]
         Fileoperation.movetotrash(userid,filename)
         return [1,"Moved to trash",None]
     except FileNotFoundError as e:

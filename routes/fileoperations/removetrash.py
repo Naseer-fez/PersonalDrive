@@ -12,10 +12,10 @@ Fileoperation=get_storage()
 def Home(userid,data):
     userid=str(userid)
     filename=str(data.get("filepath"))
-    filesize=Fileoperation.Filesize(filepath=filename)
+    filesize=Fileoperation.Filesize(userid,filepath=filename)
     obj=Fileoperation.deletefile(userid=userid,filepath=filename)
     if not obj:
         return  jsonify({"return":"Some error is removing the trash"})
-    updatefilestructure(userid=userid,Updates=filename,operation="delete")
+    updatefilestructure(Userid=userid,Updates=filename,operation="delete")
     updatespace(userid=userid,operation=filesize)
     return jsonify({"return":"removedsuccesully from trash"})
