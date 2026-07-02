@@ -152,12 +152,14 @@ class LocalStorage:
             tochangeparent=Path(tochange).parent
             newlocation=self.joinpath(basepath,tochangeparent)
             #First create the directory
+
             Path(newlocation).mkdir(parents=True, exist_ok=True) #Folder is created 
-            filename=(Path(tochange).name) #extract the filename 
+            filename=(Path(tochange).name) #extract the filename
             #Now copy the files
             newlocation=newlocation/filename
             # self.__filecopy(source=oldpathlocation,destination=newlocation) #Binnary chunking
             os.rename(oldpathlocation,newlocation)
+            return 1
             
         #    self.Createfolder(userid=userid,filepath=Path(newlocation))
     def __filecopy(self,source,destination):
@@ -178,6 +180,27 @@ class LocalStorage:
     def filetiming(self,path):
         stats=self.getfilestats(path)
         return {"createdtime":int(stats.st_ctime),"updatedtime":int(stats.st_mtime)}
+    def movetotrash(self,userid,filename):
+        oldpath=Path(filename)
+        newpath="trash"/oldpath
+        return self.locationchnage(userid=userid,oldpath=oldpath,tochange=newpath)
+    def gettheprefix(self,userid,tosavepath):
+        tosavepath=Path(tosavepath)
+        tosavepath="trash"/tosavepath
+        attempts=1000
+        prefix=0
+        original_stemp=tosavepath.stem
+        original_suffix=tosavepath.suffix
+        tosavepath=self.getfilepath(userid=userid,filename=tosavepath)
+        while attempts:
+            if not self.fileexist(userid=userid,filepath=tosavepath):
+                # self.__openfile(userid=userid,filename=tosavepath,filemode="w")
+                return tosavepath
+            attempts=attempts-1
+            prefix=prefix+1
+            tosavepath=tosavepath.with_name(f"{original_stemp}[{prefix}]{original_suffix}")
+        return 0
+       
 def get_storage():
     return LocalStorage()
 
