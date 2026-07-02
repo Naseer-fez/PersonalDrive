@@ -38,8 +38,9 @@ def home(Userid):
                 break
             File.write(Chunk)
             filesize += len(Chunk)
-    updatespace(userid=Userid,operation=uploadsize)
     updatefilestructure(Userid,Updates=tosavepath,operation="add")
+    updatespace(userid=Userid,operation=uploadsize)
+    
     return jsonify({"return":"File Saved in the server"}),200
 
 
