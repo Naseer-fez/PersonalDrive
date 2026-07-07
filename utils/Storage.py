@@ -50,7 +50,8 @@ class LocalStorage:
     
     def readdata(self,filename,Sizeofdata=None): #cannot be more modular 
             if (self.isdirectory(filename)):
-                self.readfolder(filename=filename,size=Sizeofdata)
+                yield from self.readfolder(filename=filename,size=Sizeofdata)
+                return
             if Sizeofdata is not None:
                 with open(file=filename,mode="rb") as output:
                         while True:
@@ -60,21 +61,27 @@ class LocalStorage:
                             yield chunk
             else:
                 with open(file=filename,mode="r") as output:
-                    return output
+                    yield  output  ##full file
     def readfolder(self,filename,size):
             #first need to zip this 
-            inmem=io.BytesIO()
-            with zipfile.ZipFile(inmem,"w",zipfile.ZIP_DEFLATED) as zip:
-                for root,dirs,files in os.walk(filename):
-                    filepath=os.path.join(root,file)
-                    archfile=os.path.relpath(filepath,filename)
-                    zip.write(archfile)
-                    inmem.seek(0)
-                    chunk=inmem.read()
-                    if chunk :
+                inmem=io.BytesIO()
+                with zipfile.ZipFile(inmem,"w",zipfile.ZIP_DEFLATED) as zip:
+                    for root,dirs,files in os.walk(filename):
+                        for file in files:
+                            filepath=os.path.join(root,file)
+                            archfile=os.path.relpath(filepath,filename)
+                            zip.write(filepath,arcname=archfile)
+                chunksize=1024*1024*int(size)
+                inmem.seek(0)
+                try:
+                    while True:
+                        chunk=inmem.read(chunksize)
+                        if not chunk:
+                            break
                         yield chunk
-                    inmem.seek(0)
-                    inmem.truncate(0)
+                finally:                
+                    inmem.close()
+                
     def jsonwrite(self,userid,data,fileindent=4,filepath=None):
         if filepath is None:
             File=self.__openfile(userid,filename=None,filemode="w")
