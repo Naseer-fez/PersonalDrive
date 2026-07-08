@@ -4,7 +4,7 @@ from flask_jwt_extended import create_access_token
 from utils.Databaseop import writedb
 accountcreationbp=Blueprint("createaccount",__name__)
 
-@accountcreationbp.route("/createaccount/",methods=["GET"])
+@accountcreationbp.route("/createaccount/",methods=["POST"])
 @getjson
 def home(data):
 

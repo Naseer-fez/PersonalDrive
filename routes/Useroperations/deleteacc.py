@@ -3,7 +3,7 @@ from utils.acceptjson import getjson
 from utils.Databaseop import deletedb
 deleteacc=Blueprint("deleteaccount",__name__)
 
-@deleteacc.route("/deleteuser/",methods=["GET"])
+@deleteacc.route("/deleteuser/",methods=["DELETE"])
 @getjson
 def home(data):
     message=deletedb(data)

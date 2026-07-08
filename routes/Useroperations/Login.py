@@ -4,7 +4,7 @@ from flask_jwt_extended import create_access_token
 from utils.Databaseop import readdb
 loginbp=Blueprint("login",__name__)
 
-@loginbp.route("/login/",methods=["GET"])
+@loginbp.route("/login/",methods=["POST"])
 @getjson
 def home(data):
     userid=readdb(data)
