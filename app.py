@@ -23,6 +23,7 @@ from routes.Useroperations.Login import loginbp
 from routes.Useroperations.creatacc import accountcreationbp
 from routes.Useroperations.deleteacc import deleteacc
 from routes.Useroperations.update import updatebp
+from routes.Useroperations.Forgotemail.forgotemail import forgotbp
 #Uttils
 from utils.auth import enableauth
 from flask_jwt_extended import JWTManager
@@ -53,7 +54,8 @@ def Createapp():
     #Register Blueprints
     routes=[uploadbp,downloadbp,structurebp,deletefilebp,
             updatefilebp,createbp,postionbp,spacebp,filesearch,trashbp,
-            setpublicbp,publicbp,folderuploadbp,loginbp,accountcreationbp,deleteacc,updatebp]
+            setpublicbp,publicbp,folderuploadbp,
+            loginbp,accountcreationbp,deleteacc,updatebp,forgotbp]
     for blueprint in routes:
         app.register_blueprint(blueprint)
     

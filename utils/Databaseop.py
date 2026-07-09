@@ -92,6 +92,18 @@ def readdb(data,input=0):
         
 
 
+def getemail(email):
+    try:
+        ROW=db.session.query(User).filter_by(email=email).first()
+        if not ROW:
+            return [0,"No email found"]
+        else:
+            return [1,ROW.userid]
+    except Exception as e:
+        return [0,str(e)]
+    
+    
+
 
 def deletedb(data):
     result=readdb(data,input=1)

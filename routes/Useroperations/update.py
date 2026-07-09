@@ -3,7 +3,7 @@ from utils.acceptjson import getjson
 from utils.Databaseop import updatedb
 updatebp=Blueprint("updateacc",__name__)
 
-@updatebp.route("/updateacc/",methods=["DELETE"])
+@updatebp.route("/updateacc/",methods=["POST"])
 @getjson
 def home(data):
     message=updatedb(data)

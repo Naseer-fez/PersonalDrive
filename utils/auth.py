@@ -5,14 +5,14 @@ PUBLIC = {
     "login.home", #Login 
     "createaccount.home", #Create account
     "public.Home", # filesharing
+    "forgot.home" #forgotpassword
+    "forgot.verify"#codeofemail
 }
 
 def enableauth(app):
 
     @app.before_request
     def enforcingauth():
-        print(PUBLIC)
-        print(f"Endpoint: '{request.endpoint}'") 
         if request.endpoint in PUBLIC:
             return
         return #For testing right now
