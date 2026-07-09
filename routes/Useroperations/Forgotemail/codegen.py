@@ -6,7 +6,7 @@ from utils.sendemail import Messages_to_send
 def OTP(email,length=4):
     Code=__digitcode()
     # (to,content:str,subject=None,frm=email)
-    Subject="Your Verfication Code For Tap Nap"
+    Subject="Your Verfication Code For Cloud Storage"
     Content=f"""
     You Verfication Code to Log in Cloud Storage  is {Code}
     Dont Share your otp with anyone else.
