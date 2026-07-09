@@ -8,9 +8,9 @@ loginbp=Blueprint("login",__name__)
 @getjson
 def home(data):
     userid=readdb(data)
-    if not userid:
-        return jsonify({"return":userid}),401
+    if not userid[0]:
+        return jsonify({"return":userid[1]}),401
     username=data.get("username")
     tooken=create_access_token(identity=username)
-    return jsonify({"return":tooken,"userid":userid}),200
+    return jsonify({"return":tooken,"userid":userid[1]}),200
     

@@ -9,9 +9,9 @@ accountcreationbp=Blueprint("createaccount",__name__)
 def home(data):
 
     userid=writedb(data)
-    if not userid:
-        return jsonify({"return":userid}),401
+    if not userid[0]:
+        return jsonify({"return":userid[1]}),401
     username=data.get("username")
     tooken=create_access_token(identity=username)
-    return jsonify({"return":tooken,"userid":userid}),200
+    return jsonify({"return":tooken,"userid":userid[1]}),200
     
