@@ -40,8 +40,8 @@ def Createapp():
     #Configs
     CORS(app=app)    
     jwt = JWTManager(app)
-    enableauth(app)
     enableratelimiter(app)
+    enableauth(app)
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(int(os.getenv("jwtduration")))
     #DATABASE
     try:
