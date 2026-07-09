@@ -21,10 +21,13 @@ from routes.folderoperations.folderupload import folderuploadbp
 #Acc Operations
 from routes.Useroperations.Login import loginbp
 from routes.Useroperations.creatacc import accountcreationbp
+from routes.Useroperations.deleteacc import deleteacc
 #Uttils
 from utils.auth import enableauth
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
+#Models
+from models.database import db
 load_dotenv()
 def Createapp():
     app = Flask(__name__)
@@ -36,10 +39,20 @@ def Createapp():
     enableauth(app)
     jwt = JWTManager(app)
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(int(os.getenv("jwtduration")))
+    #DATABASE
+    try:
+        app.config['SQLALCHEMY_DATABASE_URI']=os.getenv("Database")
+        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    except Exception as e:
+        print(e)
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+    db.init_app(app)
+    with app.app_context():
+        db.create_all()
     #Register Blueprints
     routes=[uploadbp,downloadbp,structurebp,deletefilebp,
             updatefilebp,createbp,postionbp,spacebp,filesearch,trashbp,
-            setpublicbp,publicbp,folderuploadbp,loginbp,accountcreationbp]
+            setpublicbp,publicbp,folderuploadbp,loginbp,accountcreationbp,deleteacc]
     for blueprint in routes:
         app.register_blueprint(blueprint)
     
