@@ -26,6 +26,7 @@ from routes.Useroperations.update import updatebp
 from routes.Useroperations.Forgotemail.forgotemail import forgotbp
 #Uttils
 from utils.auth import enableauth
+from utils.ratelimiter import enableratelimiter
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
 #Models
@@ -40,6 +41,7 @@ def Createapp():
     CORS(app=app)    
     jwt = JWTManager(app)
     enableauth(app)
+    enableratelimiter(app)
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(int(os.getenv("jwtduration")))
     #DATABASE
     try:
