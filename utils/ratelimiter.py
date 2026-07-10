@@ -9,7 +9,11 @@ def enableratelimiter(app):
     @app.before_request
     def enforcing():
         ip = request.remote_addr
-        waittime=RL(IP_Adrs=ip,FolderPath=path)
+        endpoint = request.endpoint or request.path
+        endpoint=endpoint.replace("/", "")
+        key=f"{ip}:{endpoint}"
+        waittime=RL(IP_Adrs=key,FolderPath=path,Filename=endpoint.strip("/"),Format=None,
+                    CooldownTime=20,ResetTime=10,AllowedFreq=25)
         if waittime!=1:
             return jsonify({"return":f"too many requests!!, wait for {waittime}sec","waittime":int(waittime)}),429
         return
