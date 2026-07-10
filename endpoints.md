@@ -221,7 +221,7 @@ ___
     keyᵢ: valueᵢ
 } 
 ```
-## ** The Process is only sucessful when the status code is 500**
+## ** The Process is only sucessful when the status code is 200**
 
 
 
