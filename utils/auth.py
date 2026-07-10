@@ -14,6 +14,8 @@ def enableauth(app):
 
     @app.before_request
     def enforcingauth():
+        if request.method == "OPTIONS":
+            return
         if request.endpoint in PUBLIC:
             return
         # return #For testing right now

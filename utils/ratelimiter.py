@@ -8,6 +8,8 @@ def enableratelimiter(app):
     
     @app.before_request
     def enforcing():
+        if request.method == "OPTIONS":
+            return
         ip = request.remote_addr
         endpoint = request.endpoint or request.path
         endpoint=endpoint.replace("/", "")
