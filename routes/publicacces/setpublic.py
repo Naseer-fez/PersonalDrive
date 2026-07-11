@@ -17,8 +17,8 @@ def Home(userid,data):
         return jsonify({"return":"no filepath sent"}),400
     tooken=maplink(userid=userid,filepath=filepath,exptime=expiredata)
     link=generatelink(data=tooken)
-    base=os.getenv("backend")
-    # link=f"{base}/{link}" #rember to take thsi off
+    base=os.getenv("URL")
+    link=f"{base}/{link}"
     return jsonify({"return":str(link)}),200
     
 

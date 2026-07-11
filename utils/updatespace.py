@@ -22,7 +22,8 @@ def spacecalculator(userid,operation=0):
     except FileNotFoundError as e:
         Createfilestructure(userid=userid)
         DIR=Fileoperation.jsonread(userid=userid)
-    
+    except Exception as e:
+        return 0
     total = 0
 
     for root in DIR:

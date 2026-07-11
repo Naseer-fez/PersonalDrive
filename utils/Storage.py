@@ -164,7 +164,14 @@ class LocalStorage:
             return 1
         except Exception as e:
             return 0
-
+    def createnewuser(self,userid):
+        userid=str(userid)
+        filepath=self.source/userid
+        jsn=f"{userid}.json"
+        jsonfilepath=self.userdetails/userid/jsn
+        Path(filepath).mkdir(parents=True, exist_ok=True)
+        Path(jsonfilepath).mkdir(parents=True, exist_ok=True)
+        return 
 
     def fileexist(self,userid,filepath):
         filename=self.getreativepath(userid=userid,filename=filepath)
