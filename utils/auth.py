@@ -24,9 +24,9 @@ def enableauth(app):
            value=decode_token(auth_header)
            
         except JWTExtendedException:
-            return jsonify({"error": "Unauthorized"}), 401
+            return jsonify({"error": "Unauthorized"}), 402
         except Exception:
-            return jsonify({"error": "Unauthorized"}), 401
+            return jsonify({"error": "Unauthorized"}), 402
         return
 
     return
