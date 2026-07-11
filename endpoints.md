@@ -1,246 +1,721 @@
-# API ENDPOINT GUIDE:
-___
+# API Reference Guide
 
-## File upload
-### <u>Endpoint</u>:
-#### uploadfile/<int:Userid>
-Method:POST
-### <u>Data accepted</u>: 
-#### Form: directory and files
-### <u>Return:</u> JSON(key)->return 
-___
-## Folder Upload
-### <u>Endpoint</u>:
-#### uploadfolder/ <int:Userid>
-Method:POST
-### <u>Data accepted</u>: 
-#### directory and List of files  
-### <u>Return:</u> JSON(key)->return 
-___
-## File/Folder Download
-### <u>Endpoint</u>:
-#### download/ <int:Userid>
-Method:GET
-### <u>Data accepted</u>: 
-#### JSON: filename(key) :could be file or folder 
-### <u>Return:</u> 
-#### Failure:JSON(key)->return 
-#### Success:File (mimetype,size,file,header),              Folder (zip)  
-___
-## Share File or Folder 
-### <u>Endpoint</u>:
-#### share/ <int:Userid>
-Method:POST
-### <u>Data accepted</u>: 
-#### JSON: filename(key) :could be file or folder 
-### <u>Return:</u> 
-#### JSON(key)->return :LINK 
-___
-## Access  File or Folder Through link *
-### <u>Endpoint</u>:
-#### share/<int:userid>/<string:filesharing>/<int:time>/<string:token>
- **All these are part of the Link**<br>
-Method:GET
-### <u>Data accepted</u>: 
-#### NONE 
-### <u>Return:</u> 
-#### Failure:JSON(key)->return 
-#### Success: File (mimetype,size,file,header),              Folder (zip) 
-___
-## Folder Structure
-### <u>Endpoint</u>:
-#### structure/ <int:Userid>
-#### structure/ <int:Userid> / <int:folder>
-Method:GET
-### <u>Data accepted</u>: 
-#### NONE
-### <u>Return:</u> 
-#### Failure:JSON(key)->return 
-#### Success:  JSON file structure
-**NOTE:No folder send the complete folder structure** 
+This document provides a comprehensive and standardized reference for the PersonalDrive API. 
 
-### **GET NUM OF FOLDERS**:
-### <u>Endpoint</u>:
-####folders/<int:userid>
-Method:GET
-### <u>Data accepted</u>: 
-#### NONE
-### <u>Return:</u> 
-#### JSON(key)->return 
-**NOTE:Return the number of folders of the user**
-___
-## File/Folder Delete
-### <u>Endpoint</u>:
-#### deletefile/<int:userid>/
-Method:DELETE
-### <u>Data accepted</u>:
-#### JSON: filepath(key) ,trash(key) 
-**Trash is optional if it is 1 means delete the file completely** 
-### <u>Return:</u> 
-#### JSON(key)->return 
-___
-## Delete From Trash
-### <u>Endpoint</u>:
-#### trash/<int:userid>/
-Method:DELETE
-### <u>Data accepted</u>:
-#### JSON: filepath(key) 
-### <u>Return:</u> 
-#### JSON(key)->return 
-___
-## File/Folder Rename
-### <u>Endpoint</u>:
-#### updatefile/<int:userid>/
-Method:PUT
-### <u>Data accepted</u>:
-#### JSON: filename(key) ,newname(key) 
-### <u>Return:</u> 
-#### JSON(key)->return 
-___
-## Folder Directory (empty)
-### <u>Endpoint</u>:
-#### createfolder/<int:userid>/
-Method:PUT
-### <u>Data accepted</u>:
-#### JSON: filename(key) (The directory)
-### <u>Return:</u> 
-#### JSON(key)->return 
-___
-## Change File Location
-### <u>Endpoint</u>:
-#### changefilelocation/<int:userid>/
-Method:PUT
-### <u>Data accepted</u>:
-#### JSON: oldpath(key) ,newpath(key) 
-### <u>Return:</u> 
-#### JSON(key)->return 
-___
-## File Search
-### <u>Endpoint</u>:
-#### searchfile/<int:userid>/<string:filename>/
-Method:GET
-### <u>Data accepted</u>:
-#### NONE
-### <u>Return:</u> 
-#### JSON(key)->return :List of all the file 
-___
-## Get User Space Usage
-### <u>Endpoint</u>:
-#### userstats/<int:userid>/
-Method:GET
-### <u>Data accepted</u>:
-#### NONE
-### <u>Return:</u> 
-#### JSON(key)->return : JSON(KEYS) (<int:usedspace>,<int:remaningspace>,<bool:update>)
-___
-## Create Account *
-### <u>Endpoint</u>:
-#### createaccount/
-Method:POST
-### <u>Data accepted</u>:
-#### JSON(Keys): username,password,email(optional) 
-### <u>Return:</u>
-#### Failure:JSON(key)->return 
-#### Success:   JSON(key)->return :token:<JWT:> ,userid:<int:userid>
-___
-## LOGIN *
-### <u>Endpoint</u>:
-#### login/
-Method:POST
-### <u>Data accepted</u>:
-#### JSON(Keys): username,password,email(optional) 
-**Email login also is available as a choice**
-### <u>Return:</u>
-#### Failure:JSON(key)->return 
-#### Success:   JSON(key)->return :token:<JWT:> ,userid:<int:userid>
-___
-## DELETE Account
-### <u>Endpoint</u>:
-#### deleteacc/
-Method:DELETE
-### <u>Data accepted</u>:
-#### JSON(Keys): username,password,email(optional) 
-### <u>Return:</u>
-#### JSON(key)->return 
-___
-## Update Account
-### <u>Endpoint</u>:
-#### updateacc/
-Method:PUT
-### <u>Data accepted</u>:
-#### JSON(Keys): username,password,email(optional) 
-### <u>Return:</u>
-#### Failure:JSON(key)->return 
-#### Success:   JSON(key)->return:token:<JWT:> ,userid:<int:userid>
-**Can be used for changed the password ,username or the email **
-___
-___
-## Forgot Password *
-### <u>Endpoint</u>:
-#### forgot/
-Method:POST
-### <u>Data accepted</u>:
-#### JSON(Keys): email
-### <u>Return:</u>
-#### JSON(key)->return 
+---
 
-## Code Verification:*  
-### <u>Endpoint</u>:
-#### forgot/code/
-Method:POST
-### <u>Data accepted</u>:
-#### JSON(Keys): email .Header-> OTP
-### <u>Return:</u>
-#### Failure:JSON(key)->return :Message
-#### Success: JSON(key)->return:token:
-**This token to be sent in the header of the for the next endpoint**
+## Authentication & Global Configurations
 
-## Change Password:*  
-### <u>Endpoint</u>:
-#### verify/code/
-Method:POST
-### <u>Data accepted</u>:
-#### JSON(Keys):Header-> token,email,password 
-### <u>Return:</u>
-#### Failure:JSON(key)->return :Message
-#### Success: JSON(key)->return:token:
+### Header-Based JWT Authentication
+Most endpoints in this API require authentication. PersonalDrive uses custom JWT authentication via the `auth` header.
+- **Key**: `auth`
+- **Value**: `<JWT_TOKEN>` (passed directly without a `Bearer` prefix)
 
-___
+### Authentication Responses
+If a request is sent to a private endpoint without a valid token:
+- **Status Code**: `401` (Used as unauthorized in the backend)
+- **Response Body**:
+  ```json
+  {
+    "error": "Unauthorized"
+  }
+  ```
 
-### PUBLIC LINKS: login,createacc,forgot,forgot/code,verify/code,share
-### * Denotes public links which can be accesed without the JWT token
-### If not public then :
-### . Always send JWT token through the header file
-### .  ** "auth"** is the key which need the JWT token
-### . Send the JWT directly.
-___
-### JSON STRUCTURE
+### Response Status Codes
+- `200 OK`: The process was successful.
+- `400 Bad Request`: Incorrect input or missing parameters.
+- `401 Unauthorized`: Authentication failed, invalid credentials, or operation-specific failure or invalid JWT token.
+---
 
-```json
-{
-    keyᵢ: valueᵢ
-} 
-```
-## ** The Process is only sucessful when the status code is 200**
+## Public Endpoints
+These endpoints do not require the `auth` header.
 
+### 1. Create Account
+*Create a new user account.*
 
+- **Endpoint**: `/createaccount/`
+- **Method**: `POST`
+- **Authentication**: None (Public)
+- **Content-Type**: `application/json`
+- **Request Body**:
+  ```json
+  {
+    "username": "example_user",
+    "password": "secure_password",
+    "email": "user@example.com"
+  }
+  ```
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": "jwt_token_string_here",
+      "userid": 123
+    }
+    ```
+  - **Failure (`401 Unauthorized`)**:
+    ```json
+    {
+      "return": "Error message explaining why creation failed"
+    }
+    ```
 
+---
 
+### 2. Login
+*Authenticate an existing user.*
 
+- **Endpoint**: `/login/`
+- **Method**: `POST`
+- **Authentication**: None (Public)
+- **Content-Type**: `application/json`
+- **Request Body**:
+  ```json
+  {
+    "username": "example_user",
+    "password": "secure_password",
+    "email": "user@example.com"
+  }
+  ```
+  > [!NOTE]
+  > Login can accept either `username` or `email` along with the `password`.
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": "jwt_token_string_here",
+      "userid": 123
+    }
+    ```
+  - **Failure (`401 Unauthorized`)**:
+    ```json
+    {
+      "return": "Invalid Credentials or user not found"
+    }
+    ```
 
+---
 
+### 3. Forgot Password (Send OTP)
+*Initiate the password recovery process by requesting an OTP code.*
 
+- **Endpoint**: `/forgot/`
+- **Method**: `POST`
+- **Authentication**: None (Public)
+- **Content-Type**: `application/json`
+- **Request Body**:
+  ```json
+  {
+    "email": "user@example.com"
+  }
+  ```
+- **Responses**:
+  - **Success (`200 OK` or dynamic)**:
+    ```json
+    {
+      "return": "OTP sent successfully"
+    }
+    ```
+  - **Failure (`401 Unauthorized`)**:
+    ```json
+    {
+      "return": "no email sent"
+    }
+    ```
 
+---
 
+### 4. Code Verification (Verify OTP)
+*Verify the OTP received via email to obtain a temporary token for password reset.*
 
+- **Endpoint**: `/forgot/code/`
+- **Method**: `POST`
+- **Authentication**: None (Public)
+- **Content-Type**: `application/json`
+- **Headers**:
+  - `otp`: `<OTP_CODE>` (Required)
+- **Request Body**:
+  ```json
+  {
+    "email": "user@example.com"
+  }
+  ```
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": "verification_token_string"
+    }
+    ```
+  - **Failure (`401 Unauthorized`)**:
+    ```json
+    {
+      "return": "Invalid OTP code or email"
+    }
+    ```
 
+---
 
+### 5. Change Password (Reset Password)
+*Reset the password using the token retrieved from the OTP verification.*
 
+- **Endpoint**: `/verify/code/`
+- **Method**: `POST`
+- **Authentication**: None (Public)
+- **Content-Type**: `application/json`
+- **Headers**:
+  - `token`: `<VERIFICATION_TOKEN>` (Required)
+- **Request Body**:
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "new_secure_password"
+  }
+  ```
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": "Password changed"
+    }
+    ```
+  - **Failure (`401 Unauthorized`)**:
+    ```json
+    {
+      "return": "Invalid token or password update failed"
+    }
+    ```
 
+---
 
+### 6. Access Shared File/Folder (Public Access Link)
+*Retrieve a shared file or directory using a public access link.*
 
+- **Endpoint**: `/share/<int:userid>/<string:filesharing>/<int:time>/<string:tooken>`
+  > [!IMPORTANT]
+  > Note the path spelling of `tooken` instead of `token` and `filesharing` representing the Base64-encoded file path.
+- **Method**: `GET`
+- **Authentication**: None (Public)
+- **Responses**:
+  - **Success (`200 OK`)**: File binary stream / zip archive (with headers for mimetype, filesize, or attachment disposition).
+  - **Failure (`400 Bad Request`)**:
+    ```json
+    {
+      "return": "link expired"
+    }
+    ```
+    *or*
+    ```json
+    {
+      "return": "the tooken which you have recived is invalid"
+    }
+    ```
+    *or (typo in key `retutn`)*:
+    ```json
+    {
+      "retutn": "WrongFile Inputed Tryagain"
+    }
+    ```
 
+---
 
+## Private Endpoints
+These endpoints require the JWT token passed in the `auth` header.
 
+### 7. File Upload
+*Upload a single file to the specified directory.*
 
+- **Endpoint**: `/uploadfile/<int:Userid>`
+- **Method**: `POST`
+- **Authentication**: Required (`auth` header)
+- **Content-Type**: `multipart/form-data`
+- **Request Parameters**:
+  - Form Fields:
+    - `directory` (string, optional, default: `/`)
+  - Files:
+    - `filepath` (file binary, required)
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": "File Saved in the server"
+    }
+    ```
+  - **Failure (`400 Bad Request`)**:
+    ```json
+    {
+      "return": "No file provided"
+    }
+    ```
+    *or*
+    ```json
+    {
+      "return": "No space left \n Try Clearning Trash"
+    }
+    ```
+  - **Failure (`401 Unauthorized/Error`)**:
+    ```json
+    {
+      "return": "Some Error in Creating the Directory"
+    }
+    ```
+    *or*
+    ```json
+    {
+      "return": "Too Many files already exist try a diffrentname"
+    }
+    ```
 
+---
+
+### 8. Folder Upload
+*Upload multiple files preserving folder structure.*
+
+- **Endpoint**: `/uploadfolder/<int:Userid>/`
+- **Method**: `POST`
+- **Authentication**: Required (`auth` header)
+- **Content-Type**: `multipart/form-data`
+- **Request Parameters**:
+  - Form Fields:
+    - `directory` (string, required)
+  - Files:
+    - `files` (array of file binaries, required)
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": "Folder upload done"
+    }
+    ```
+  - **Failure (`400 Bad Request`)**:
+    ```json
+    {
+      "return": "No folder uploaded"
+    }
+    ```
+    *or*
+    ```json
+    {
+      "return": "No folder path mentioned"
+    }
+    ```
+  - **Failure (`401 Error`)**:
+    ```json
+    {
+      "return": "Error details message"
+    }
+    ```
+
+---
+
+### 9. File/Folder Download
+*Download a file or a folder (compressed as a zip).*
+
+- **Endpoint**: `/download/<int:userid>/`
+- **Method**: `GET`
+- **Authentication**: Required (`auth` header)
+- **Content-Type**: `application/json`
+- **Request Body**:
+  ```json
+  {
+    "filename": "path/to/file_or_folder"
+  }
+  ```
+- **Responses**:
+  - **Success (`200 OK`)**: File binary stream / zip archive.
+    - Files return headers: `filesize` and `filetype`.
+    - Folders return header: `Content-Disposition: attachment; filename=...zip`.
+  - **Failure (`400 Bad Request`)**:
+    ```json
+    {
+      "retutn": "WrongFile Inputed Tryagain"
+    }
+    ```
+
+---
+
+### 10. Share File or Folder (Generate Public Link)
+*Generate a shareable public access link for a file or folder.*
+
+- **Endpoint**: `/access/<int:userid>/`
+- **Method**: `POST`
+- **Authentication**: Required (`auth` header)
+- **Content-Type**: `application/json`
+- **Request Body**:
+  ```json
+  {
+    "filepath": "path/to/file_or_folder",
+    "time": 604800
+  }
+  ```
+  > [!NOTE]
+  > `time` is optional and specifies expiration duration in seconds. Defaults to `604800` (1 week).
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": "http://yourserver.com/share/userid/encodedpath/expiry/token"
+    }
+    ```
+  - **Failure (`400 Bad Request`)**:
+    ```json
+    {
+      "return": "no filepath sent"
+    }
+    ```
+
+---
+
+### 11. Folder Structure
+*Get the JSON structure of user directories.*
+
+- **Endpoint**: 
+  - `/structure/<int:userid>/`
+  - `/structure/<int:userid>/<int:folder>`
+- **Method**: `GET`
+- **Authentication**: Required (`auth` header)
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "folder_structure_details": "..."
+    }
+    ```
+  - **Failure (`400 Bad Request`)**:
+    ```json
+    {
+      "return": "No folders left ",
+      "instruction": "create a file before gettig the structure"
+    }
+    ```
+    *or*
+    ```json
+    {
+      "return": "fileopeningerror",
+      "instruction": "tryagain"
+    }
+    ```
+
+---
+
+### 12. Get Total Number of Folders
+*Get the number of folders for a user.*
+
+- **Endpoint**: `/folders/<int:userid>/`
+- **Method**: `GET`
+- **Authentication**: Required (`auth` header)
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": 5
+    }
+    ```
+  - **Failure (`400 Bad Request`)**:
+    ```json
+    {
+      "return": "No folders left ",
+      "instruction": "create a file before gettig the structure"
+    }
+    ```
+
+---
+
+### 13. File/Folder Delete
+*Delete a file/folder or move it to trash.*
+
+- **Endpoint**: `/deletefile/<int:userid>/`
+- **Method**: `DELETE`
+- **Authentication**: Required (`auth` header)
+- **Content-Type**: `application/json`
+- **Request Body**:
+  ```json
+  {
+    "filepath": "path/to/file_or_folder",
+    "trash": 1,
+    "replace": 0
+  }
+  ```
+  > [!NOTE]
+  > - `trash` is optional (default: `1`). Setting to `1` moves to trash, while `0` deletes it permanently.
+  > - `replace` is optional (default: `0`). Set to `1` to overwrite a file in trash if it already exists.
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": "Moved to trash"
+    }
+    ```
+    *or*
+    ```json
+    {
+      "return": "Moved succesfully"
+    }
+    ```
+  - **Failure (`400 Bad Request`)**:
+    ```json
+    {
+      "return": "Filenotfound"
+    }
+    ```
+    *or*
+    ```json
+    {
+      "return": "similar files already exist"
+    }
+    ```
+
+---
+
+### 14. Delete From Trash
+*Permanently delete a file or folder from the trash directory.*
+
+- **Endpoint**: `/trash/<int:userid>/`
+- **Method**: `DELETE`
+- **Authentication**: Required (`auth` header)
+- **Content-Type**: `application/json`
+- **Request Body**:
+  ```json
+  {
+    "filepath": "path/to/file_in_trash"
+  }
+  ```
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": "removedsuccesully from trash"
+    }
+    ```
+    > [!NOTE]
+    > Note the typo in the success response string `removedsuccesully`.
+  - **Failure (`200 OK`)**:
+    ```json
+    {
+      "return": "Some error is removing the trash"
+    }
+    ```
+
+---
+
+### 15. File/Folder Rename
+*Rename an existing file or directory.*
+
+- **Endpoint**: `/updatefile/<int:userid>/`
+- **Method**: `PUT`
+- **Authentication**: Required (`auth` header)
+- **Content-Type**: `application/json`
+- **Request Body**:
+  ```json
+  {
+    "filename": "path/to/old_name",
+    "newname": "path/to/new_name"
+  }
+  ```
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": "file renamed"
+    }
+    ```
+  - **Failure (`400 Bad Request`)**:
+    ```json
+    {
+      "return": "Filenotfound"
+    }
+    ```
+    *or*
+    ```json
+    {
+      "return": "filedonotexist"
+    }
+    ```
+    *or*
+    ```json
+    {
+      "return": "permissiondenied"
+    }
+    ```
+
+---
+
+### 16. Create Folder
+*Create an empty folder.*
+
+- **Endpoint**: `/createfolder/<int:userid>/`
+- **Method**: `PUT`
+- **Authentication**: Required (`auth` header)
+- **Content-Type**: `application/json`
+- **Request Body**:
+  ```json
+  {
+    "filename": "path/to/new_folder"
+  }
+  ```
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": "file renamed"
+    }
+    ```
+    > [!NOTE]
+    > Although this endpoint creates a folder, the backend returns `"file renamed"` upon success.
+  - **Failure (`400 Bad Request`)**:
+    ```json
+    {
+      "return": "permissiondenied"
+    }
+    ```
+
+---
+
+### 17. Change File Location (Move File/Folder)
+*Move a file or folder to a new destination.*
+
+- **Endpoint**: `/changefilelocation/<int:userid>/`
+- **Method**: `PUT`
+- **Authentication**: Required (`auth` header)
+- **Content-Type**: `application/json`
+- **Request Body**:
+  ```json
+  {
+    "oldpath": "path/to/current_location",
+    "newlocation": "path/to/new_location"
+  }
+  ```
+  > [!IMPORTANT]
+  > Ensure the payload key is `newlocation` (not `newpath` as indicated in older documents).
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": "file postion changed"
+    }
+    ```
+    > [!NOTE]
+    > Note the typo in the success response string `postion`.
+  - **Failure (`400 Bad Request`)**:
+    ```json
+    {
+      "return": "Filenotfound"
+    }
+    ```
+    *or*
+    ```json
+    {
+      "return": "filedonotexist"
+    }
+    ```
+
+---
+
+### 18. File Search
+*Search for files by name.*
+
+- **Endpoint**: `/searchfile/<int:userid>/<string:filename>/`
+- **Method**: `GET`
+- **Authentication**: Required (`auth` header)
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": "File Found",
+      "path": ["/path/to/matched/file1", "/path/to/matched/file2"]
+    }
+    ```
+  - **Failure (`400 Bad Request`)**:
+    ```json
+    {
+      "return": "File Not Found"
+    }
+    ```
+
+---
+
+### 19. Get User Space Usage
+*Get stats regarding user storage space utilization.*
+
+- **Endpoint**: `/userstats/<int:userid>/`
+- **Method**: `GET`
+- **Authentication**: Required (`auth` header)
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": {
+        "usedspace": 1048576,
+        "remaningspace": 524288000,
+        "update": 0
+      }
+    }
+    ```
+  - **Failure (`400 Bad Request`)**:
+    ```json
+    {
+      "return": "The user do not exist"
+    }
+    ```
+
+---
+
+### 20. Update Account Details
+*Modify account details (e.g. username, password, or email).*
+
+- **Endpoint**: `/updateacc/`
+- **Method**: `PUT` (also accepts `POST`)
+- **Authentication**: Required (`auth` header)
+- **Content-Type**: `application/json`
+- **Request Body**:
+  ```json
+  {
+    "username": "updated_user",
+    "password": "updated_password",
+    "email": "updated_email@example.com"
+  }
+  ```
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": "Account updated successfully"
+    }
+    ```
+  - **Failure (`401 Unauthorized`)**:
+    ```json
+    {
+      "return": "Error message details"
+    }
+    ```
+
+---
+
+### 21. Delete Account
+*Permanently delete user account.*
+
+- **Endpoint**: `/deleteacc/`
+- **Method**: `DELETE`
+- **Authentication**: Required (`auth` header)
+- **Content-Type**: `application/json`
+- **Request Body**:
+  ```json
+  {
+    "username": "example_user",
+    "password": "secure_password",
+    "email": "user@example.com"
+  }
+  ```
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    {
+      "return": "Account deleted successfully"
+    }
+    ```
+  - **Failure (`401 Unauthorized`)**:
+    ```json
+    {
+      "return": "Invalid credentials or delete failed"
+    }
+    ```
