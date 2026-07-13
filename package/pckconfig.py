@@ -29,16 +29,31 @@ LBL_SECURITY         = " Security & Authentication "
 LBL_RATE_LIMITER     = " Rate Limiting Settings "
 LBL_NETWORK          = " Connections & Network URLs "
 
-# GitHub Source (used for code download)
-GITHUB_OWNER        = "Naseer-fez"
-GITHUB_REPO         = "PersonalDrive"
-GITHUB_BRANCH       = "main"
-GITHUB_ZIP_URL      = f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/archive/refs/heads/{GITHUB_BRANCH}.zip"
-GITHUB_EXTRACTED_DIR = f"{GITHUB_REPO}-{GITHUB_BRANCH}"
+# GitHub Source & URLs (Loaded from local urls.py inside package directory)
+_CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+if _CURRENT_DIR not in sys.path:
+    sys.path.insert(0, _CURRENT_DIR)
 
-# Ngrok Links (used in Help dialogs)
-NGROK_SIGNUP_URL     = "https://ngrok.com"
-NGROK_DASHBOARD_URL  = "https://dashboard.ngrok.com"
+try:
+    import urls
+except ImportError:
+    try:
+        from package import urls
+    except ImportError:
+        urls = None
+
+HELP_WEBSITE_URL     = urls.HELP_WEBSITE_URL if urls else "https://example.com/help"
+CENTRAL_SERVER_URL   = urls.CENTRAL_SERVER_URL if urls else "https://example.com/api"
+DEFAULT_FRONTEND_URL = urls.DEFAULT_FRONTEND_URL if urls else "http://localhost:5174"
+DEFAULT_CORS_ORIGIN  = urls.DEFAULT_CORS_ORIGIN if urls else "*"
+NGROK_SIGNUP_URL     = urls.NGROK_SIGNUP_URL if urls else "https://ngrok.com"
+NGROK_DASHBOARD_URL  = urls.NGROK_DASHBOARD_URL if urls else "https://dashboard.ngrok.com"
+
+GITHUB_OWNER         = urls.GITHUB_OWNER if urls else "Naseer-fez"
+GITHUB_REPO          = urls.GITHUB_REPO if urls else "PersonalDrive"
+GITHUB_BRANCH        = urls.GITHUB_BRANCH if urls else "main"
+GITHUB_ZIP_URL       = urls.GITHUB_ZIP_URL if urls else f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/archive/refs/heads/{GITHUB_BRANCH}.zip"
+GITHUB_EXTRACTED_DIR = f"{GITHUB_REPO}-{GITHUB_BRANCH}"
 
 # File Names
 PACKAGE_CONFIG_FILE  = "packageconfig.json"
@@ -56,9 +71,8 @@ DEFAULT_JWT_MINUTES  = 30
 DEFAULT_FREQUENCY    = 50
 DEFAULT_RESET_SEC    = 60
 DEFAULT_COOLDOWN_SEC = 30
-DEFAULT_FRONTEND_URL = "http://localhost:5174"
-DEFAULT_CORS_ORIGIN  = "*"
-DEFAULT_LOGIN        = False
+DEFAULT_ALLOW_USERS  = False
+DEFAULT_LOGIN        = DEFAULT_ALLOW_USERS  # Alias for backward compatibility
 DEFAULT_RATE_LIMITER = False
 DEFAULT_HOST         = "0.0.0.0"
 DEFAULT_PORT         = 5000
@@ -89,7 +103,8 @@ _DEFAULT_CONFIG = {
     "size": DEFAULT_BANDWIDTH,
     "basic": DEFAULT_USER_SPACE,
     "backend": "",
-    "Allowlogin": DEFAULT_LOGIN,
+    "allowusers": DEFAULT_ALLOW_USERS,
+    "api_key": "",
     "jwtduration": DEFAULT_JWT_MINUTES,
     "ratelimiter": "",
     "FrontendURL": DEFAULT_CORS_ORIGIN,

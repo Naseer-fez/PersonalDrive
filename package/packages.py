@@ -5,5 +5,6 @@ packages = [
     "python-dotenv",
     "sqlalchemy",
     "gunicorn",
-    "waitress"
+    "waitress",
+    "ngrok"
 ]

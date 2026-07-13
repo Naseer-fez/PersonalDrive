@@ -7,21 +7,21 @@ from tkinter import ttk, messagebox, filedialog
 
 try:
     from pckconfig import (
-        config, CONFIG_TITLE,
+        config, CONFIG_TITLE, HELP_WEBSITE_URL,
         LBL_DIRECTORIES, LBL_LIMITS, LBL_SECURITY, LBL_RATE_LIMITER, LBL_NETWORK,
         DEFAULT_BANDWIDTH, DEFAULT_USER_SPACE, DEFAULT_JWT_MINUTES,
         DEFAULT_FREQUENCY, DEFAULT_RESET_SEC, DEFAULT_COOLDOWN_SEC,
-        DEFAULT_FRONTEND_URL, DEFAULT_CORS_ORIGIN, DEFAULT_LOGIN, DEFAULT_RATE_LIMITER,
+        DEFAULT_FRONTEND_URL, DEFAULT_CORS_ORIGIN, DEFAULT_ALLOW_USERS, DEFAULT_RATE_LIMITER,
         DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS,
         SERVER_CONFIG_FILE, CODE_CONFIG_SCRIPT
     )
 except ImportError:
     from package.pckconfig import (
-        config, CONFIG_TITLE,
+        config, CONFIG_TITLE, HELP_WEBSITE_URL,
         LBL_DIRECTORIES, LBL_LIMITS, LBL_SECURITY, LBL_RATE_LIMITER, LBL_NETWORK,
         DEFAULT_BANDWIDTH, DEFAULT_USER_SPACE, DEFAULT_JWT_MINUTES,
         DEFAULT_FREQUENCY, DEFAULT_RESET_SEC, DEFAULT_COOLDOWN_SEC,
-        DEFAULT_FRONTEND_URL, DEFAULT_CORS_ORIGIN, DEFAULT_LOGIN, DEFAULT_RATE_LIMITER,
+        DEFAULT_FRONTEND_URL, DEFAULT_CORS_ORIGIN, DEFAULT_ALLOW_USERS, DEFAULT_RATE_LIMITER,
         DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS,
         SERVER_CONFIG_FILE, CODE_CONFIG_SCRIPT
     )
@@ -49,8 +49,16 @@ class ServerConfigApp:
         self.root.update_idletasks()
         width = self.root.winfo_width()
         height = self.root.winfo_height()
-        x = (self.root.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.root.winfo_screenheight() // 2) - (height // 2)
+        
+        setup_x = config.get("setup_win_x")
+        setup_y = config.get("setup_win_y")
+        if setup_x is not None and setup_y is not None:
+            x = setup_x
+            y = setup_y
+        else:
+            x = (self.root.winfo_screenwidth() // 2) - (width // 2)
+            y = (self.root.winfo_screenheight() // 2) - (height // 2)
+            
         self.root.geometry(f'{width}x{height}+{x}+{y}')
 
     def create_help_link(self, parent, title, text):
@@ -104,33 +112,48 @@ class ServerConfigApp:
         self.basic_spin = ttk.Spinbox(limits_frame, from_=1, to=1000, textvariable=self.basic_var, width=8)
         self.basic_spin.grid(row=0, column=3, sticky=tk.W, padx=5, pady=2)
 
+        import webbrowser
+        self.more_settings_btn = ttk.Button(limits_frame, text="More Settings...", command=self.show_more_settings)
+        self.more_settings_btn.grid(row=0, column=4, padx=5, pady=2, sticky=tk.W)
+
         self.create_help_link(
             limits_frame,
             "Limits Help",
             "Bandwidth Limit (size):\nSets standard network transfer quota limits.\n\nSpace per User (basic):\nMax disk storage space (in GB) allocated per basic user account."
-        ).grid(row=0, column=4, padx=10, sticky=tk.W)
+        ).grid(row=0, column=5, padx=10, sticky=tk.W)
 
-        # 3. Security (Login)
+        # 3. Security (Users)
         self.sec_frame = ttk.LabelFrame(main_frame, text=LBL_SECURITY, padding="10")
         self.sec_frame.pack(fill=tk.X, pady=(0, 10))
 
         sec_header_row = ttk.Frame(self.sec_frame)
         sec_header_row.pack(fill=tk.X)
 
-        self.login_var = tk.BooleanVar(value=DEFAULT_LOGIN)
-        self.login_check = ttk.Checkbutton(
+        self.allow_users_var = tk.BooleanVar(value=DEFAULT_ALLOW_USERS)
+        self.allow_users_check = ttk.Checkbutton(
             sec_header_row, 
-            text="Allow Login", 
-            variable=self.login_var,
-            command=self.toggle_login_state
+            text="Allow Users", 
+            variable=self.allow_users_var,
+            command=self.toggle_allow_users_state
         )
-        self.login_check.pack(side=tk.LEFT)
+        self.allow_users_check.pack(side=tk.LEFT)
 
         self.create_help_link(
             sec_header_row,
-            "Security & Login Help",
-            "Allow Login:\nEnables user authentication. If unchecked, the server restricts login access and registration.\n\nJWT Duration:\nThe period (in minutes) a logged-in user session remains valid before expiring, requiring them to sign in again."
+            "Security & Users Help",
+            "Allow Users:\nEnables user authentication. If unchecked, the server restricts login access and registration.\n\nJWT Duration:\nThe period (in minutes) a logged-in user session remains valid before expiring, requiring them to sign in again."
         ).pack(side=tk.LEFT, padx=10)
+
+        # Help website link button
+        help_btn = ttk.Label(
+            sec_header_row,
+            text="Visit Website for Help",
+            foreground="#0066cc",
+            cursor="hand2",
+            font=("Segoe UI", 9, "underline")
+        )
+        help_btn.pack(side=tk.LEFT, padx=10)
+        help_btn.bind("<Button-1>", lambda e: webbrowser.open_new(HELP_WEBSITE_URL))
 
         self.jwt_frame = ttk.Frame(self.sec_frame)
         ttk.Label(self.jwt_frame, text="JWT Expiration (minutes):").pack(side=tk.LEFT, pady=2)
@@ -159,6 +182,15 @@ class ServerConfigApp:
             "Rate Limiting Help",
             "Enable Rate Limiter:\nToggles request limit tracking to prevent server overload.\n\nDatabase Path:\nStores the limiter tracking logs database.\n\nRequest Frequency:\nMax request threshold permitted within the Reset Duration.\n\nReset / Cooldown Time:\nTiming thresholds (in seconds) defining the reset window and the temporary block duration."
         ).pack(side=tk.LEFT, padx=10)
+
+        # Advanced toggle checkbox (shown beside enable checkbox when enabled)
+        self.rl_adv_var = tk.BooleanVar(value=False)
+        self.rl_adv_check = ttk.Checkbutton(
+            rl_header_row,
+            text="Show Advanced Settings",
+            variable=self.rl_adv_var,
+            command=self.toggle_rl_adv
+        )
 
         self.rl_options_frame = ttk.Frame(self.rl_frame)
         
@@ -193,36 +225,54 @@ class ServerConfigApp:
         net_frame = ttk.LabelFrame(main_frame, text=LBL_NETWORK, padding="10")
         net_frame.pack(fill=tk.X, pady=(0, 15))
 
-        ttk.Label(net_frame, text="Frontend website URL (URL):").grid(row=0, column=0, sticky=tk.W, pady=2)
+        # Grid container inside net_frame
+        net_grid = ttk.Frame(net_frame)
+        net_grid.pack(fill=tk.X)
+
+        ttk.Label(net_grid, text="Frontend website URL (URL):").grid(row=0, column=0, sticky=tk.W, pady=2)
         self.url_var = tk.StringVar()
-        self.url_entry = ttk.Entry(net_frame, textvariable=self.url_var, width=45)
+        self.url_entry = ttk.Entry(net_grid, textvariable=self.url_var, width=45)
         self.url_entry.grid(row=0, column=1, padx=5, pady=2)
 
-        ttk.Label(net_frame, text="CORS Origin Header (FrontendURL):").grid(row=1, column=0, sticky=tk.W, pady=2)
-        self.cors_var = tk.StringVar()
-        self.cors_entry = ttk.Entry(net_frame, textvariable=self.cors_var, width=45)
-        self.cors_entry.grid(row=1, column=1, padx=5, pady=2)
-
-        ttk.Label(net_frame, text="Server Host:").grid(row=2, column=0, sticky=tk.W, pady=2)
-        self.host_var = tk.StringVar()
-        self.host_entry = ttk.Entry(net_frame, textvariable=self.host_var, width=45)
-        self.host_entry.grid(row=2, column=1, padx=5, pady=2)
-
-        ttk.Label(net_frame, text="Server Port:").grid(row=3, column=0, sticky=tk.W, pady=2)
-        self.port_var = tk.IntVar()
-        self.port_spin = ttk.Spinbox(net_frame, from_=1, to=65535, textvariable=self.port_var, width=8)
-        self.port_spin.grid(row=3, column=1, sticky=tk.W, padx=5, pady=2)
-
-        ttk.Label(net_frame, text="Worker Threads:").grid(row=4, column=0, sticky=tk.W, pady=2)
-        self.threads_var = tk.IntVar()
-        self.threads_spin = ttk.Spinbox(net_frame, from_=1, to=64, textvariable=self.threads_var, width=8)
-        self.threads_spin.grid(row=4, column=1, sticky=tk.W, padx=5, pady=2)
-
         self.create_help_link(
-            net_frame,
+            net_grid,
             "Connections & URLs Help",
-            "Frontend website URL (URL):\nThe link to your client web interface application (e.g. http://localhost:5174).\n\nCORS Header (FrontendURL):\nControls client request access permissions. Set to '*' to allow all client websites to contact the server API.\n\nServer Host:\nThe network interface the server binds to (e.g. 0.0.0.0 for all interfaces, 127.0.0.1 for local only).\n\nServer Port:\nThe port number the server listens on (e.g. 5000).\n\nWorker Threads:\nNumber of concurrent request handler threads for the Waitress server. More threads = more simultaneous users. Default is 4."
-        ).grid(row=0, column=2, rowspan=5, padx=10, sticky=tk.N)
+            "Frontend website URL (URL):\nThe link to your client web interface application (e.g. http://localhost:5174).\n\nCORS Header (FrontendURL):\nControls client request access permissions.\n\nServer Host:\nThe network interface the server binds to.\n\nServer Port:\nThe port number the server listens on.\n\nWorker Threads:\nNumber of concurrent request handler threads."
+        ).grid(row=0, column=2, padx=10, sticky=tk.N)
+
+        self.cors_var = tk.StringVar()
+        self.host_var = tk.StringVar()
+        self.port_var = tk.IntVar()
+        self.threads_var = tk.IntVar()
+
+        # Advanced Settings Toggle
+        self.show_adv_net_var = tk.BooleanVar(value=False)
+        self.adv_net_check = ttk.Checkbutton(
+            net_frame, 
+            text="Show Advanced Connections Settings", 
+            variable=self.show_adv_net_var,
+            command=self.toggle_adv_net
+        )
+        self.adv_net_check.pack(anchor=tk.W, pady=(5, 0))
+
+        # Advanced Settings Frame (grid layout for fields)
+        self.adv_net_frame = ttk.Frame(net_frame, padding=(0, 5, 0, 0))
+        
+        ttk.Label(self.adv_net_frame, text="CORS Origin Header (FrontendURL):").grid(row=0, column=0, sticky=tk.W, pady=2)
+        self.cors_entry = ttk.Entry(self.adv_net_frame, textvariable=self.cors_var, width=45)
+        self.cors_entry.grid(row=0, column=1, padx=5, pady=2)
+
+        ttk.Label(self.adv_net_frame, text="Server Host:").grid(row=1, column=0, sticky=tk.W, pady=2)
+        self.host_entry = ttk.Entry(self.adv_net_frame, textvariable=self.host_var, width=45)
+        self.host_entry.grid(row=1, column=1, padx=5, pady=2)
+
+        ttk.Label(self.adv_net_frame, text="Server Port:").grid(row=2, column=0, sticky=tk.W, pady=2)
+        self.port_spin = ttk.Spinbox(self.adv_net_frame, from_=1, to=65535, textvariable=self.port_var, width=8)
+        self.port_spin.grid(row=2, column=1, sticky=tk.W, padx=5, pady=2)
+
+        ttk.Label(self.adv_net_frame, text="Worker Threads:").grid(row=3, column=0, sticky=tk.W, pady=2)
+        self.threads_spin = ttk.Spinbox(self.adv_net_frame, from_=1, to=64, textvariable=self.threads_var, width=8)
+        self.threads_spin.grid(row=3, column=1, sticky=tk.W, padx=5, pady=2)
 
         # Actions Panel
         action_frame = ttk.Frame(main_frame)
@@ -234,8 +284,8 @@ class ServerConfigApp:
         self.finish_btn = ttk.Button(action_frame, text="Finish Configuration", command=self.handle_finish)
         self.finish_btn.pack(side=tk.RIGHT)
 
-    def toggle_login_state(self):
-        if self.login_var.get():
+    def toggle_allow_users_state(self):
+        if self.allow_users_var.get():
             self.jwt_frame.pack(fill=tk.X, pady=(5, 0), anchor=tk.W)
         else:
             self.jwt_frame.pack_forget()
@@ -243,9 +293,25 @@ class ServerConfigApp:
 
     def toggle_rl_states(self):
         if self.rl_enable_var.get():
+            self.rl_adv_check.pack(side=tk.LEFT, padx=10)
+            self.toggle_rl_adv()
+        else:
+            self.rl_adv_check.pack_forget()
+            self.rl_options_frame.pack_forget()
+        self.auto_adjust_height()
+
+    def toggle_rl_adv(self):
+        if self.rl_enable_var.get() and self.rl_adv_var.get():
             self.rl_options_frame.pack(fill=tk.X, pady=(5, 0))
         else:
             self.rl_options_frame.pack_forget()
+        self.auto_adjust_height()
+
+    def toggle_adv_net(self):
+        if self.show_adv_net_var.get():
+            self.adv_net_frame.pack(fill=tk.X, pady=(5, 0))
+        else:
+            self.adv_net_frame.pack_forget()
         self.auto_adjust_height()
 
     def auto_adjust_height(self):
@@ -278,9 +344,12 @@ class ServerConfigApp:
         self.size_var.set(server_data.get("size") or config.get("size", DEFAULT_BANDWIDTH))
         self.basic_var.set(server_data.get("basic") or config.get("basic", DEFAULT_USER_SPACE))
         
-        self.login_var.set(server_data.get("Allowlogin") if "Allowlogin" in server_data else config.get("Allowlogin", DEFAULT_LOGIN))
+        allowusers_val = server_data.get("allowusers") if "allowusers" in server_data else server_data.get("Allowlogin")
+        if allowusers_val is None:
+            allowusers_val = config.get("allowusers") if config.get("allowusers") is not None else config.get("Allowlogin", DEFAULT_ALLOW_USERS)
+        self.allow_users_var.set(allowusers_val)
         self.jwt_var.set(server_data.get("jwtduration") or config.get("jwtduration", DEFAULT_JWT_MINUTES))
-        self.toggle_login_state()
+        self.toggle_allow_users_state()
         
         self.rl_enable_var.set(server_data.get("Ratelimiter") if "Ratelimiter" in server_data else config.get("Ratelimiter", DEFAULT_RATE_LIMITER))
         self.rl_path_var.set(os.path.normpath(
@@ -298,7 +367,7 @@ class ServerConfigApp:
         self.host_var.set(server_data.get("host") or config.get("host", DEFAULT_HOST))
         self.port_var.set(server_data.get("port") or config.get("port", DEFAULT_PORT))
         self.threads_var.set(server_data.get("threads") or config.get("threads", DEFAULT_THREADS))
-        
+        self.toggle_adv_net()
         self.auto_adjust_height()
 
     def browse_dest(self):
@@ -556,7 +625,7 @@ class ServerConfigApp:
         initial_email = ""
         initial_password = ""
 
-        if not self.login_var.get():
+        if not self.allow_users_var.get():
             cred_result = self.show_credential_dialog()
             
             if cred_result == "SKIP":
@@ -571,6 +640,33 @@ class ServerConfigApp:
                 # User created credentials
                 initial_username, initial_email, initial_password = cred_result
 
+        # Prompt for API Key
+        api_key = self.show_api_key_dialog()
+        if api_key is None:
+            # User closed API key dialog — stay on config page
+            return
+
+        if api_key:
+            try:
+                import winreg
+                key_handle = winreg.OpenKey(
+                    winreg.HKEY_CURRENT_USER,
+                    "Environment",
+                    0,
+                    winreg.KEY_SET_VALUE
+                )
+                winreg.SetValueEx(key_handle, "accesstooken", 0, winreg.REG_SZ, api_key)
+                
+                ngrok_tok = config.get("ngrok_token", "")
+                if ngrok_tok:
+                    winreg.SetValueEx(key_handle, "ngrokauth", 0, winreg.REG_SZ, ngrok_tok)
+                    winreg.SetValueEx(key_handle, "NGROK_AUTHTOKEN", 0, winreg.REG_SZ, ngrok_tok)
+                    winreg.SetValueEx(key_handle, "NGROK_API_KEY", 0, winreg.REG_SZ, ngrok_tok)
+                    
+                winreg.CloseKey(key_handle)
+            except Exception as e:
+                print(f"Warning: Failed to set winreg env variables: {e}", file=sys.stderr)
+
         # 1. Prepare server/project configuration properties
         server_data = {
             "DestinationFolder": expanded_dest,
@@ -578,18 +674,20 @@ class ServerConfigApp:
             "size": self.size_var.get(),
             "basic": self.basic_var.get(),
             "backend": "",
-            "Allowlogin": self.login_var.get(),
+            "allowusers": self.allow_users_var.get(),
+            "Allowlogin": self.allow_users_var.get(), # Legacy alias
+            "api_key": api_key,
             "jwtduration": self.jwt_var.get(),
             "ratelimiter": expanded_rl,
-            "FrontendURL": self.cors_var.get().strip(),
+            "FrontendURL": self.cors_var.get().strip() if hasattr(self, "cors_var") and self.cors_var.get() else "*",
             "URL": self.url_var.get().strip(),
             "Ratelimiter": self.rl_enable_var.get(),
             "Allowfreq": self.freq_var.get(),
             "Resettime": self.reset_var.get(),
             "cooldowntime": self.cooldown_var.get(),
-            "host": self.host_var.get().strip(),
-            "port": self.port_var.get(),
-            "threads": self.threads_var.get(),
+            "host": self.host_var.get().strip() if hasattr(self, "host_var") and self.host_var.get() else "0.0.0.0",
+            "port": self.port_var.get() if hasattr(self, "port_var") and self.port_var.get() else 5000,
+            "threads": self.threads_var.get() if hasattr(self, "threads_var") and self.threads_var.get() else 4,
             "initial_username": initial_username,
             "initial_email": initial_email,
             "initial_password": initial_password
@@ -625,8 +723,14 @@ class ServerConfigApp:
         # 5. Save combined settings directly to packageconfig.json
         try:
             config.set("config_path", config_json_path)
+            # Remove window coordinates so they don't persist in files
+            combined_config.pop("setup_win_x", None)
+            combined_config.pop("setup_win_y", None)
+            config.set("setup_win_x", None)
+            config.set("setup_win_y", None)
             for k, v in combined_config.items():
-                config.set(k, v)
+                if v is not None:
+                    config.set(k, v)
         except Exception as e:
             messagebox.showerror("Warning", f"Failed to save package config: {e}")
 
@@ -654,6 +758,229 @@ class ServerConfigApp:
             self.on_cancel()
         else:
             sys.exit(0)
+
+    def show_more_settings(self):
+        """Show a dialog containing disk storage info and a bandwidth speed test."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("More Settings — System Diagnostics")
+        dialog.geometry("520x460")
+        dialog.resizable(False, False)
+        dialog.grab_set()
+        dialog.transient(self.root)
+        
+        # Center on parent
+        dialog.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (260)
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (230)
+        dialog.geometry(f"520x460+{x}+{y}")
+        
+        main = ttk.Frame(dialog, padding="20")
+        main.pack(fill=tk.BOTH, expand=True)
+        
+        ttk.Label(
+            main,
+            text="System Diagnostics & Limits",
+            font=("Segoe UI", 12, "bold")
+        ).pack(anchor=tk.W, pady=(0, 15))
+        
+        # 1. Disk Storage Frame
+        storage_frame = ttk.LabelFrame(main, text=" Storage & Available Disk Space ", padding="10")
+        storage_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        # Get storage usage of the destination folder
+        dest_path = self.dest_var.get().strip() or self.workspace_dir
+        import shutil
+        try:
+            abs_path = os.path.abspath(dest_path)
+            drive = os.path.splitdrive(abs_path)[0] or "/"
+            total, used, free = shutil.disk_usage(drive)
+            total_gb = total / (1024 ** 3)
+            used_gb = used / (1024 ** 3)
+            free_gb = free / (1024 ** 3)
+            pct_used = (used / total) * 100
+            
+            storage_lbl_text = f"Drive: {drive} | Total: {total_gb:.1f} GB | Used: {used_gb:.1f} GB | Free: {free_gb:.1f} GB"
+        except Exception as e:
+            pct_used = 0
+            free_gb = 0
+            storage_lbl_text = f"Could not retrieve drive info: {e}"
+            
+        ttk.Label(storage_frame, text=storage_lbl_text, font=("Segoe UI", 9)).pack(anchor=tk.W, pady=2)
+        
+        # Storage progress bar
+        progress = ttk.Progressbar(storage_frame, orient="horizontal", mode="determinate")
+        progress.pack(fill=tk.X, pady=(5, 5))
+        progress["value"] = pct_used
+        
+        # Auto-apply storage toggle
+        self.apply_storage_var = tk.BooleanVar(value=True)
+        
+        def update_storage_limit():
+            if self.apply_storage_var.get() and free_gb > 2:
+                val = max(1, int(free_gb - 2))
+                self.basic_var.set(val)
+                
+        self.apply_storage_check = ttk.Checkbutton(
+            storage_frame, 
+            text="Auto-apply available space to Space per User (Full minus 2 GB margin)", 
+            variable=self.apply_storage_var,
+            command=update_storage_limit
+        )
+        self.apply_storage_check.pack(anchor=tk.W, pady=(5, 0))
+        
+        # Initial apply if checked
+        if self.apply_storage_var.get() and free_gb > 2:
+            self.basic_var.set(max(1, int(free_gb - 2)))
+        
+        # 2. Bandwidth Speed Test Frame
+        net_test_frame = ttk.LabelFrame(main, text=" Network Bandwidth Speed Test ", padding="10")
+        net_test_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        ttk.Label(
+            net_test_frame, 
+            text="Test your download speed by downloading a temporary 1MB file from Cloudflare:",
+            wraplength=460, justify=tk.LEFT
+        ).pack(anchor=tk.W, pady=(0, 10))
+        
+        status_lbl = ttk.Label(net_test_frame, text="Ready to test.", font=("Segoe UI", 9, "italic"))
+        status_lbl.pack(anchor=tk.W, pady=5)
+        
+        # Auto-apply toggle
+        self.apply_speed_var = tk.BooleanVar(value=True)
+        self.apply_speed_check = ttk.Checkbutton(
+            net_test_frame, 
+            text="Auto-apply speed test result to Bandwidth Limit", 
+            variable=self.apply_speed_var
+        )
+        self.apply_speed_check.pack(anchor=tk.W, pady=(5, 5))
+        
+        def run_test():
+            status_lbl.config(text="Testing download speed... please wait.", foreground="#0066cc")
+            test_btn.config(state="disabled")
+            
+            def thread_func():
+                import urllib.request
+                import time
+                url = "https://speed.cloudflare.com/__down?bytes=1048576"  # 1MB
+                start = time.time()
+                try:
+                    req = urllib.request.Request(
+                        url,
+                        headers={'User-Agent': 'Mozilla/5.0'}
+                    )
+                    with urllib.request.urlopen(req, timeout=12) as r:
+                        content = r.read()
+                    elapsed = time.time() - start
+                    if elapsed <= 0:
+                        elapsed = 0.001
+                    size_mbits = (len(content) * 8) / 1000000.0
+                    speed_mbps = size_mbits / elapsed
+                    
+                    if speed_mbps >= 100:
+                        desc = "Very Fast"
+                    elif speed_mbps >= 20:
+                        desc = "Fast"
+                    elif speed_mbps >= 5:
+                        desc = "Moderate"
+                    else:
+                        desc = "Slow"
+                    
+                    speed_val = max(1, int(speed_mbps))
+                    result_text = f"Download Speed: {speed_mbps:.2f} Mbps ({desc})"
+                    dialog.after(0, lambda: status_lbl.config(text=result_text, foreground="green"))
+                    
+                    if self.apply_speed_var.get():
+                        dialog.after(0, lambda: self.size_var.set(speed_val))
+                except Exception as ex:
+                    dialog.after(0, lambda: status_lbl.config(text=f"Speed test failed: {ex}", foreground="red"))
+                finally:
+                    dialog.after(0, lambda: test_btn.config(state="normal"))
+            
+            import threading
+            threading.Thread(target=thread_func, daemon=True).start()
+            
+        test_btn = ttk.Button(net_test_frame, text="Test Download Speed", command=run_test)
+        test_btn.pack(anchor=tk.W, pady=2)
+        
+        # Close Button
+        close_btn = ttk.Button(main, text="Close", command=dialog.destroy)
+        close_btn.pack(side=tk.RIGHT)
+
+    def show_api_key_dialog(self):
+        """Show a dialog prompting the user to enter the Central Server API Key."""
+        import webbrowser
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Central Server API Key")
+        dialog.geometry("450x260")
+        dialog.resizable(False, False)
+        dialog.grab_set()
+        dialog.transient(self.root)
+        
+        # Center on parent
+        dialog.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (225)
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (130)
+        dialog.geometry(f"450x260+{x}+{y}")
+        
+        main = ttk.Frame(dialog, padding="20")
+        main.pack(fill=tk.BOTH, expand=True)
+        
+        ttk.Label(
+            main,
+            text="Enter Central Server API Key",
+            font=("Segoe UI", 12, "bold")
+        ).pack(anchor=tk.W, pady=(0, 5))
+        
+        ttk.Label(
+            main,
+            text="Please enter your API key provided by the central server.\n"
+                 "If you do not have an API key, visit our website to get one.",
+            font=("Segoe UI", 9),
+            foreground="gray",
+            wraplength=410,
+            justify=tk.LEFT
+        ).pack(anchor=tk.W, pady=(0, 15))
+        
+        fields = ttk.Frame(main)
+        fields.pack(fill=tk.X, pady=(0, 15))
+        
+        ttk.Label(fields, text="API Key:", font=("Segoe UI", 10)).grid(row=0, column=0, sticky=tk.W, pady=5)
+        api_var = tk.StringVar(value=config.get("api_key", ""))
+        api_entry = ttk.Entry(fields, textvariable=api_var, width=32)
+        api_entry.grid(row=0, column=1, padx=(10, 0), pady=5, sticky=tk.EW)
+        
+        # Help link inside API key dialog
+        help_link = ttk.Label(
+            fields,
+            text="Get API Key",
+            foreground="#0066cc",
+            cursor="hand2",
+            font=("Segoe UI", 9, "underline")
+        )
+        help_link.grid(row=0, column=2, padx=(10, 0), pady=5)
+        help_link.bind("<Button-1>", lambda e: webbrowser.open_new(HELP_WEBSITE_URL))
+        
+        fields.columnconfigure(1, weight=1)
+        
+        result = [None]
+        
+        btn_frame = ttk.Frame(main)
+        btn_frame.pack(fill=tk.X, side=tk.BOTTOM)
+        
+        def on_skip():
+            result[0] = ""
+            dialog.destroy()
+            
+        def on_save():
+            result[0] = api_var.get().strip()
+            dialog.destroy()
+            
+        ttk.Button(btn_frame, text="Skip", command=on_skip).pack(side=tk.LEFT)
+        ttk.Button(btn_frame, text="Save & Finish", command=on_save).pack(side=tk.RIGHT)
+        
+        api_entry.focus_set()
+        self.root.wait_window(dialog)
+        return result[0]
 
 if __name__ == "__main__":
     root = tk.Tk()

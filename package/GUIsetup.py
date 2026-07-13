@@ -696,10 +696,18 @@ class ProgramSetupApp:
         print(f"#FEZ {json.dumps(result)}")
         sys.stdout.flush()
         
-        self.root.destroy()
+        try:
+            x = self.root.winfo_x()
+            y = self.root.winfo_y()
+            config.set("setup_win_x", x)
+            config.set("setup_win_y", y)
+        except Exception:
+            pass
+            
         if self.on_complete:
             self.on_complete(result)
         else:
+            self.root.destroy()
             sys.exit(0)
 
     def on_close(self):

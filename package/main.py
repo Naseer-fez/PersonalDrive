@@ -19,39 +19,43 @@ except ImportError:
 
 
 def main():
+    root = tk.Tk()
     setup_completed = False
+    config_completed = False
 
     # ── Phase 1: Setup Wizard ──────────────────────────────
     def on_setup_complete(result):
         nonlocal setup_completed
         setup_completed = True
-        # Reload config so GUIconfig sees the freshly saved values
         config.reload()
+        
+        # Clear all setup widgets from the root window
+        for widget in root.winfo_children():
+            widget.destroy()
+            
+        # Start Phase 2 (Server Configuration) inside the same root window
+        build_config_gui()
 
     def on_setup_cancel():
-        pass  # Just let mainloop exit naturally
-
-    setup_root = tk.Tk()
-    ProgramSetupApp(setup_root, on_complete=on_setup_complete, on_cancel=on_setup_cancel)
-    setup_root.mainloop()
-
-    if not setup_completed:
-        print("Setup was cancelled by the user.")
+        root.destroy()
         sys.exit(1)
 
     # ── Phase 2: Server Configuration ──────────────────────
-    config_completed = False
-
     def on_config_complete(combined_config):
         nonlocal config_completed
         config_completed = True
+        root.destroy()
 
     def on_config_cancel():
-        pass
+        root.destroy()
+        sys.exit(1)
 
-    config_root = tk.Tk()
-    ServerConfigApp(config_root, on_complete=on_config_complete, on_cancel=on_config_cancel)
-    config_root.mainloop()
+    def build_config_gui():
+        ServerConfigApp(root, on_complete=on_config_complete, on_cancel=on_config_cancel)
+
+    # Start ProgramSetupApp in the root window
+    ProgramSetupApp(root, on_complete=on_setup_complete, on_cancel=on_setup_cancel)
+    root.mainloop()
 
     if config_completed:
         print(f"\n{APP_DISPLAY_NAME} setup and configuration complete!")

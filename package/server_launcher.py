@@ -19,13 +19,13 @@ from datetime import datetime
 try:
     from pckconfig import (
         config, APP_DISPLAY_NAME, APP_NAME,
-        DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS
+        DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS, CENTRAL_SERVER_URL
     )
     from packages import packages
 except ImportError:
     from package.pckconfig import (
         config, APP_DISPLAY_NAME, APP_NAME,
-        DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS
+        DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS, CENTRAL_SERVER_URL
     )
     from package.packages import packages
 
@@ -433,6 +433,12 @@ class ServerLauncher:
             self.log(f"  Public: {self.url_var.get()}", "info")
         self.log("─" * 45, "info")
 
+        # ── Notify Central Server ──
+        final_url = self.url_var.get()
+        if final_url == "Not connected":
+            final_url = local_url
+        self.notify_central_server(final_url)
+
     # ── Log Streaming ──────────────────────────────────────
     def _stream_server_logs(self):
         """Read server stdout line-by-line and display in log."""
@@ -481,6 +487,42 @@ class ServerLauncher:
         self.start_btn.config(state="normal")
         self.stop_btn.config(state="disabled")
         self.log("All processes terminated.", "success")
+
+    def notify_central_server(self, server_url):
+        """Send an HTTP POST request to the Central Server with our URL and API Key."""
+        api_key = config.get("api_key", "")
+        # If CENTRAL_SERVER_URL is not set or placeholder, skip
+        if not CENTRAL_SERVER_URL or "example.com" in CENTRAL_SERVER_URL:
+            self.log("Skipping Central Server notification: CENTRAL_SERVER_URL is a placeholder.", "info")
+            return
+
+        def task():
+            self.log(f"Notifying Central Server ({CENTRAL_SERVER_URL})...", "info")
+            data = {
+                "api_key": api_key,
+                "server_url": server_url
+            }
+            try:
+                payload = json.dumps(data).encode('utf-8')
+                req = urllib.request.Request(
+                    CENTRAL_SERVER_URL,
+                    data=payload,
+                    headers={
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'PersonalDrive-Server/1.0'
+                    },
+                    method='POST'
+                )
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    status = resp.status
+                    # Read to make sure response is consumed
+                    body = resp.read().decode('utf-8')
+                    self.log(f"Central Server notified successfully (Status {status}).", "success")
+            except Exception as e:
+                self.log(f"Failed to notify Central Server: {e}", "warning")
+
+        # Run in a background thread so we don't freeze the GUI
+        threading.Thread(target=task, daemon=True).start()
 
     # ── Window Close ───────────────────────────────────────
     def on_close(self):
