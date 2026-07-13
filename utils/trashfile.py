@@ -1,6 +1,4 @@
 from .Storage import get_storage
-from dotenv import load_dotenv
-load_dotenv()
 Fileoperation=get_storage()
 
 

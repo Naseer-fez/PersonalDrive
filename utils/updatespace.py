@@ -1,10 +1,8 @@
 from .Storage import get_storage
 from dotenv import load_dotenv
 from utils.FolderStructure import Createfilestructure
-import os
-load_dotenv()
+from config import config
 Fileoperation=get_storage()
-
 def getsize(node):
     # File
     if node["type"] != "Folder":
@@ -92,7 +90,7 @@ def checkchanges(userid,path=None):
 def availabelforuser(userid):
     GB=1073741824
     if userid:
-        return int(os.getenv("basic","15"))*GB
+        return config.get("basic","15")*GB
     
 
         

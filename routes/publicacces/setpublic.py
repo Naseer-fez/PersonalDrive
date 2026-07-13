@@ -2,8 +2,7 @@ from flask import Blueprint,jsonify
 from utils.Storage import get_storage
 from utils.acceptjson import getjson
 from .tookengeneration  import generatelink,maplink 
-from dotenv import load_dotenv
-import os
+from config import config
 setpublicbp=Blueprint("setpublic",__name__)
 
 Fileoperation=get_storage()
@@ -17,7 +16,7 @@ def Home(userid,data):
         return jsonify({"return":"no filepath sent"}),400
     tooken=maplink(userid=userid,filepath=filepath,exptime=expiredata)
     link=generatelink(data=tooken)
-    base=os.getenv("URL")
+    base=config.get("URL")
     link=f"{base}/{link}"
     return jsonify({"return":str(link)}),200
     

@@ -1,21 +1,20 @@
-import os 
 from dotenv import load_dotenv
 from pathlib import Path
 import json
 import shutil
 from datetime import datetime
 from stream_zip import stream_zip, ZIP_64
-load_dotenv()
-
+import os
+from config import config
 
 class LocalStorage:
     def __init__ (self):
-        self.source=Path(os.getenv("DestinationFolder"))
-        self.userdetails=Path(os.getenv("Userfolder"))
-        self.trash=str(os.getenv("trash","trash"))
-        self.statsjson=str(os.getenv("stats","stats.json"))
-        self.totalfiles=str(os.getenv("file","files.json"))
-        self.trashjson=str(os.getenv("file","trash.json"))
+        self.source = Path(config.get("DestinationFolder"))
+        self.userdetails = Path(config.get("Userfolder"))
+        self.trash = str(config.get("trash", "trash"))
+        self.statsjson = str(config.get("stats", "stats.json"))
+        self.totalfiles = str(config.get("file", "files.json"))
+        self.trashjson = str(config.get("trashfile", "trash.json"))
     def getfilepath(self,userid,filename=None,folderreq=0):
         if folderreq==1:
             basedir=self.source
@@ -221,7 +220,7 @@ class LocalStorage:
             
         #    self.Createfolder(userid=userid,filepath=Path(newlocation))
     def __filecopy(self,source,destination):
-        SIZE=1024*1024*int(os.getenv("size"), 16)
+        SIZE=1024*1024*int(config.get("size"), 16)
         with open (source,mode="rb") as SRC:
             with open(destination,mode="wb") as DES:
                 while True:

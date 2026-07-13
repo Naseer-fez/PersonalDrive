@@ -1,10 +1,12 @@
 from apirlpy import ratelimiter as RL
 from flask import request,jsonify
-from dotenv import load_dotenv
-import os
-load_dotenv()
-path=os.getenv("ratelimiter")
+from config import config
 
+
+path=config.get("ratelimiter",None)
+Allowreq=config.get("Allowfreq",50)
+Resettime=config.get("resettime",10)
+cooldowntime=config.get("cooldowntime",20)
 ALLOW={
     "FileUpload.home",
     "Downloadbp.home",
@@ -24,7 +26,7 @@ def enableratelimiter(app):
         endpoint=endpoint.replace("/", "")
         key=f"{ip}:{endpoint}"
         waittime=RL(IP_Adrs=key,FolderPath=path,Filename=endpoint.strip("/"),Format=None,
-                    CooldownTime=20,ResetTime=10,AllowedFreq=50)
+                    CooldownTime=cooldowntime,ResetTime=Resettime,AllowedFreq=Allowreq)
         if waittime!=1:
             return jsonify({"return":f"too many requests!!, wait for {waittime}sec","waittime":int(waittime)}),429
         return
