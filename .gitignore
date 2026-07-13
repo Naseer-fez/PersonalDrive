@@ -9,3 +9,7 @@ utils/native
 testfile.py
 testingendpoints/
 test.py
+endpoint.md
+endpointref.md
+package/V1/
+*.exe
