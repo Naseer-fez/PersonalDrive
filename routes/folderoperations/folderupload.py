@@ -1,12 +1,10 @@
 #Uploads cant be modulase by using the file class
 from flask import jsonify,request,Blueprint
 import os 
-from dotenv import load_dotenv
-from utils.FileHelpers import CreateDir
 from pathlib import Path
-from utils.updatespace import updatespace
+from utils.updatespace import updatespace,totalspaceused
 from utils.FolderStructure import updatefilestructure
-load_dotenv()
+from config import config
 folderuploadbp=Blueprint('folderupload',__name__)
 
 
@@ -15,18 +13,22 @@ def home(Userid):
     fileslist=request.files.getlist("files")
     if fileslist is None:
         return jsonify({"return":"No folder uploaded"}),400
+    uploadsize = request.content_length
+    if totalspaceused(Userid)["remaningspace"] < uploadsize:
+        return jsonify({"return": "No space left"}), 400
     directory=request.form.get("directory")
     if directory is None:
         return  jsonify({"return":"No folder path mentioned"}),400
-    Destiantion=os.getenv("DestinationFolder")
+    Destiantion=config.get("DestinationFolder")
     directory=Path(os.path.join(Destiantion,str(Userid),directory))
     #first create the directory
     directory.mkdir(parents=True,exist_ok=True) #directory is created 
     #now stream the file
-    CHUNK_SIZE=1024*1024*int(os.getenv("size",16))
+    CHUNK_SIZE=1024*1024*int(config.get("size",16))
     #now iterante over the files
     output="Folder upload done"
     statuscode=200
+    total_size=0
     try:
 
         for file in fileslist:
@@ -40,11 +42,13 @@ def home(Userid):
                     chunk=file.stream.read(CHUNK_SIZE)
                     if not chunk:
                         break
+                    total_size += len(chunk)
                     f.write(chunk)
     except Exception as e:
         output=e   
         statuscode=401
-        
+    updatefilestructure(Userid=Userid,operation=total_size)
+    updatespace(userid=Userid,operation=uploadsize)
     return jsonify({"return":str(output)}),statuscode
 
 

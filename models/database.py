@@ -1,10 +1,8 @@
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
-import os
-load_dotenv()
-
+from config import config
 db=SQLAlchemy()
-SPACEINGB=int(os.getenv("basic"))
+SPACEINGB=config.get("basic",15)
 class User(db.Model):
     __tablename__="User"
     userid=db.Column(db.Integer,primary_key=True,autoincrement=True)

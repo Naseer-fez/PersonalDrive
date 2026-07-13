@@ -3,9 +3,9 @@ from utils.Storage import get_storage
 from .tookengeneration import verification,verify_token,maplink,path64
 from utils.FileHelpers import filedetails
 from dotenv import load_dotenv
-import os
+from config import config
 publicbp=Blueprint("public",__name__)
-load_dotenv
+
 
 Fileoperation=get_storage()
 @publicbp.route("/share/<int:userid>/<string:filesharing>/<int:time>/<string:tooken>",methods=["GET"])
@@ -27,7 +27,7 @@ def Home(userid,filesharing,time,tooken):
         headerdata={'Content-Disposition': 'attachment', "filename":f"{filepath}.zip"}
     else:
         headerdata={"filesize":filesize,"filetype":filetype}
-    SIZE=os.getenv("size") or 5
+    SIZE=config.get("size",5) 
     return Response(Fileoperation.readdata(filename=filepath,Sizeofdata=SIZE),
                     mimetype=filetype,headers=headerdata)
     

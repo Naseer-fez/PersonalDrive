@@ -1,11 +1,10 @@
 from flask import jsonify,request,Blueprint
-import os 
 from dotenv import load_dotenv
 from utils.FileHelpers import CreateDir
 from pathlib import Path
-from utils.updatespace import updatespace
+from utils.updatespace import updatespace,totalspaceused
 from utils.FolderStructure import updatefilestructure
-load_dotenv()
+from config import config
 uploadbp=Blueprint('FileUpload',__name__)
 
 
@@ -17,8 +16,8 @@ def home(Userid):
         return jsonify({"return": "No file provided"}), 400
     Recivedfile=str(request.files['filepath'].filename)
     uploadsize = request.content_length
-    if  not updatespace(Userid,+uploadsize):
-        return jsonify({"return":"No space left \n Try Clearning Trash"}),400
+    if totalspaceused(Userid)["remaningspace"] < uploadsize:
+        return jsonify({"return": "No space left"}), 400
     tosavepath=CreateDir(Userid=Userid,Directory=directory,Filename=Recivedfile)
     filesize=0
     if  tosavepath==0:
@@ -31,7 +30,7 @@ def home(Userid):
     with open (file=Path(tosavepath),mode="wb") as File:
 
         while True:
-            Chunk=uploaded_file.stream.read((1024*1024)*int(os.getenv("size"), 10)) #10MB
+            Chunk=uploaded_file.stream.read((1024*1024)*int(config.get("size"), 10)) #10MB
             if not Chunk :
                 break
             File.write(Chunk)
