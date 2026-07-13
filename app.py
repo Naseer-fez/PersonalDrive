@@ -31,6 +31,7 @@ from utils.auth import enableauth
 from utils.ratelimiter import enableratelimiter
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
+from routes.main import resetlink,startngrok
 #Models
 from models.database import db
 load_dotenv()
@@ -41,7 +42,7 @@ def Createapp():
     app.config["secret"] = os.getenv("secret") 
     #Configs
     FrontendURL=[url.strip()
-    for url in os.getenv("FrontendURL", "").split(",")
+    for url in os.getenv("FrontendURL", "*").split(",")
     if url.strip()]
     if FrontendURL==['*']:
         CORS(app)
@@ -49,19 +50,20 @@ def Createapp():
         CORS(app,resources={r"/*":{"origins":FrontendURL}},supports_credentials=True)
     if config.get("Ratelimiter",1):
         enableratelimiter(app)    
-    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(int(os.getenv("jwtduration")))
+    
     #Register Blueprints
     loginoperations=loginbp,accountcreationbp,deleteacc,updatebp,forgotbp
     routes=[uploadbp,downloadbp,structurebp,deletefilebp,
                 updatefilebp,createbp,postionbp,spacebp,filesearch,trashbp,
                 setpublicbp,publicbp,folderuploadbp,
                 recovertrash,docsbp]
-    if config.get("Allowlogin",1):
+    if config.get("allowusers", 1):
         app.config["JWT_SECRET_KEY"]=os.getenv("jwt") or os.getenv("secret") #Secret
         for endpoint in loginoperations:
             routes.append(endpoint)
             enableauth(app)
             JWTManager(app)
+            app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(int(config.get("jwtduration",30)))
         #DATABASE
         app.config['SQLALCHEMY_DATABASE_URI']=os.getenv("Database","sqlite:///users.db")
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -74,12 +76,13 @@ def Createapp():
     
     for blueprint in routes:
         app.register_blueprint(blueprint)
-    
+    # LINK=resetlink()
+    # app.config["link"]=LINK
     return app
 app=Createapp()
 
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=False)
 
