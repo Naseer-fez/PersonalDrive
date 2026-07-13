@@ -30,7 +30,7 @@ def home(Userid):
     with open (file=Path(tosavepath),mode="wb") as File:
 
         while True:
-            Chunk=uploaded_file.stream.read((1024*1024)*int(config.get("size"), 10)) #10MB
+            Chunk=uploaded_file.stream.read((1024*1024)*int(config.get("size",10))) #10MB
             if not Chunk :
                 break
             File.write(Chunk)

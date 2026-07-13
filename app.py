@@ -63,7 +63,7 @@ def Createapp():
             enableauth(app)
             JWTManager(app)
         #DATABASE
-        app.config['SQLALCHEMY_DATABASE_URI']=config.get("Database","sqlite:///users.db")
+        app.config['SQLALCHEMY_DATABASE_URI']=os.getenv("Database","sqlite:///users.db")
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
         
         db.init_app(app)
