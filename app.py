@@ -20,7 +20,7 @@ from routes.publicacces.setpublic import setpublicbp
 from routes.folderoperations.folderupload import folderuploadbp
 from routes.docs.docs import docsbp
 ####################    CORE    FEATURES    DONE  ####################
-#Acc Operations
+#Acc Operations (Optional)
 from routes.Useroperations.Login import loginbp
 from routes.Useroperations.creatacc import accountcreationbp
 from routes.Useroperations.deleteacc import deleteacc
@@ -34,11 +34,11 @@ from datetime import timedelta
 #Models
 from models.database import db
 load_dotenv()
+from config import config
 def Createapp():
     app = Flask(__name__)
     #Scerets
-    app.config["secret"] = os.getenv("secret")
-    app.config["JWT_SECRET_KEY"]=os.getenv("jwt")
+    app.config["secret"] = os.getenv("secret") 
     #Configs
     FrontendURL=[url.strip()
     for url in os.getenv("FrontendURL", "").split(",")
@@ -47,30 +47,34 @@ def Createapp():
         CORS(app)
     else:
         CORS(app,resources={r"/*":{"origins":FrontendURL}},supports_credentials=True)
-    JWTManager(app)
-    enableratelimiter(app)
-    enableauth(app)
+    if config.get("Ratelimiter",1):
+        enableratelimiter(app)    
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(int(os.getenv("jwtduration")))
-    #DATABASE
-    try:
-        app.config['SQLALCHEMY_DATABASE_URI']=os.getenv("Database")
-        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    except Exception as e:
-        print(e)
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-    db.init_app(app)
-    with app.app_context():
-        db.create_all()
     #Register Blueprints
+    loginoperations=loginbp,accountcreationbp,deleteacc,updatebp,forgotbp
     routes=[uploadbp,downloadbp,structurebp,deletefilebp,
-            updatefilebp,createbp,postionbp,spacebp,filesearch,trashbp,
-            setpublicbp,publicbp,folderuploadbp,
-            loginbp,accountcreationbp,deleteacc,updatebp,forgotbp,recovertrash,
-            docsbp]
+                updatefilebp,createbp,postionbp,spacebp,filesearch,trashbp,
+                setpublicbp,publicbp,folderuploadbp,
+                recovertrash,docsbp]
+    if config.get("Allowlogin",1):
+        app.config["JWT_SECRET_KEY"]=os.getenv("jwt") or os.getenv("secret") #Secret
+        for endpoint in loginoperations:
+            routes.append(endpoint)
+            enableauth(app)
+            JWTManager(app)
+        #DATABASE
+        app.config['SQLALCHEMY_DATABASE_URI']=config.get("Database","sqlite:///users.db")
+        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        
+        db.init_app(app)
+        with app.app_context():
+            db.create_all()
+    
+
+    
     for blueprint in routes:
         app.register_blueprint(blueprint)
     
-
     return app
 app=Createapp()
 
