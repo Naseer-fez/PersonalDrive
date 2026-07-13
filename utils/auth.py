@@ -1,6 +1,7 @@
 from flask import request, jsonify
 from flask_jwt_extended import decode_token
 from flask_jwt_extended.exceptions import JWTExtendedException
+import os
 PUBLIC = {
     "login.home", #Login 
     "createaccount.home", #Create account
@@ -21,6 +22,8 @@ def enableauth(app):
             return
         # return #For testing right now
         auth_header = request.headers.get("auth", "")
+        if auth_header==os.getenv("accesstooken") and auth_header is not None:
+            return ## Meaning1 the backend has sent the request
         try:
            value=decode_token(auth_header)
            
