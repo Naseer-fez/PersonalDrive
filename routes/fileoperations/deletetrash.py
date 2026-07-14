@@ -17,5 +17,5 @@ def Home(userid,data):
     if not obj:
         return  jsonify({"return":"Some error is removing the trash"})
     updatefilestructure(Userid=userid)
-    updatespace(userid=userid,operation=filesize)
+    updatespace(userid=userid,operation=-filesize)
     return jsonify({"return":"removedsuccesully from trash"})

@@ -32,11 +32,13 @@ def home(Userid):
     try:
 
         for file in fileslist:
-            fileanme=Path(file.filename).name
-            filepath=directory/fileanme
-            newpath=filecheck(filepath)
+            # Clean and normalize path to support subdirectories
+            rel_path = file.filename.replace("\\", "/")
+            filepath = directory / rel_path
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            newpath = filecheck(filepath)
             if newpath !=0:
-                filepath=newpath #meaning replcae the file
+                filepath=newpath #meaning replace the file
             with open(file=filepath,mode="wb") as f:
                 while True:
                     chunk=file.stream.read(CHUNK_SIZE)
