@@ -26,6 +26,7 @@ from routes.Useroperations.creatacc import accountcreationbp
 from routes.Useroperations.deleteacc import deleteacc
 from routes.Useroperations.update import updatebp
 from routes.Useroperations.Forgotemail.forgotemail import forgotbp
+from routes.health import healthbp
 #Uttils
 from utils.auth import enableauth
 from utils.ratelimiter import enableratelimiter
@@ -55,7 +56,7 @@ def Createapp():
     loginoperations=loginbp,accountcreationbp,deleteacc,updatebp,forgotbp
     routes=[uploadbp,downloadbp,structurebp,deletefilebp,
                 updatefilebp,createbp,postionbp,spacebp,filesearch,trashbp,
-                setpublicbp,publicbp,folderuploadbp,
+                setpublicbp,publicbp,folderuploadbp,healthbp
                 recovertrash,docsbp]
     if config.get("allowusers", 1):
         app.config["JWT_SECRET_KEY"]=os.getenv("jwt") or os.getenv("secret") #Secret
@@ -71,18 +72,18 @@ def Createapp():
         db.init_app(app)
         with app.app_context():
             db.create_all()
-    
+
 
     
     for blueprint in routes:
         app.register_blueprint(blueprint)
-    # LINK=resetlink()
-    # app.config["link"]=LINK
+    LINK=resetlink()
+    app.config["link"]=LINK
     return app
 app=Createapp()
 
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=5002, debug=False)
 
