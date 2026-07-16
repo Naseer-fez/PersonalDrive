@@ -46,11 +46,14 @@ def Createapp():
     FrontendURL=[url.strip()
     for url in os.getenv("FrontendURL", "*").split(",")
     if url.strip()]
-    if FrontendURL==['*']:
-        
-        CORS(app, resources={r"/*": {"origins": re.compile(r".*")}}, supports_credentials=True)
-    else:
-        CORS(app,resources={r"/*":{"origins":FrontendURL}},supports_credentials=True)
+    
+    CORS(
+        app,
+        resources={r"/*": {"origins": "*" if FrontendURL == ['*'] else FrontendURL}},
+        allow_headers=["Content-Type", "Authorization", "auth", "ngrok-skip-browser-warning"],
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        supports_credentials=False,
+    )
     if config.get("Ratelimiter",1):
         enableratelimiter(app)    
     
@@ -60,7 +63,7 @@ def Createapp():
                 updatefilebp,createbp,postionbp,spacebp,filesearch,trashbp,
                 setpublicbp,publicbp,folderuploadbp,healthbp,
                 recovertrash,docsbp]
-    if config.get("allowusers", 1):
+    if config.get("allowusers", 0):
         app.config["JWT_SECRET_KEY"]=os.getenv("jwt") or os.getenv("secret") #Secret
         for endpoint in loginoperations:
             routes.append(endpoint)
@@ -79,13 +82,21 @@ def Createapp():
     
     for blueprint in routes:
         app.register_blueprint(blueprint)
-    LINK=resetlink()
-    app.config["link"]=LINK
+    
     return app
 app=Createapp()
 
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5002, debug=False)
+    import threading
+    import time
+    
+    def background_setup():
+        time.sleep(5)  # Give Flask a moment to bind the port
+        LINK = resetlink()
+        with app.app_context():
+            app.config["link"] = LINK
 
+    threading.Thread(target=background_setup, daemon=True).start()
+    app.run(host="0.0.0.0", port=5002, debug=False)
