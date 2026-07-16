@@ -37,24 +37,24 @@ def startngrok():
 # URL= "http://127.0.0.1:5000"
 
 def resetlink():
-    URL=config.get("backend")
+    # URL=config.get("backend")
+    URL="http://127.0.0.1:5000"
     if not URL:
         raise TypeError("The backend url is missing")
     LINK=startngrok()
     api=config.get("api_key")
-    allow_users = "1" if config.get("allowusers", False) else "0"
+    allow_users = 1 if config.get("allowusers", False) else 0
     
-    import urllib.parse
-    params = {
+    
+    data = {
         "api": api,
         "link": LINK,
         "users": allow_users
     }
-    query_string = urllib.parse.urlencode(params)
-    target_url = f"{URL.rstrip('/')}/register/api/?{query_string}"
+    target_url = f"{URL.rstrip('/')}/register/api/"
     
     try: #notify the center server
-        response=req.get(url=target_url)
+        response=req.get(url=target_url,json=data)
         strc=response.status_code
         if strc==200:
             return LINK
