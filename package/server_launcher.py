@@ -527,25 +527,24 @@ class ServerLauncher:
         def task():
             import urllib.parse
             self.log(f"Notifying Central Server ({CENTRAL_SERVER_URL})...", "info")
-            params = {
+            base_url = CENTRAL_SERVER_URL.rstrip('/')
+            payload = json.dumps({
                 "api": api_key,
                 "link": server_url,
-                "users": "1" if config.get("allowusers", False) else "0"
-            }
-            query_string = urllib.parse.urlencode(params)
-            base_url = CENTRAL_SERVER_URL.rstrip('/')
-            target_url = f"{base_url}/register/api/?{query_string}"
+                "users": config.get("allowusers", False)
+            }).encode('utf-8')
             try:
                 req = urllib.request.Request(
-                    target_url,
+                    f"{base_url}/register/api/",
+                    data=payload,
                     headers={
+                        'Content-Type': 'application/json',
                         'User-Agent': 'PersonalDrive-Server/1.0'
                     },
-                    method='GET'
+                    method='POST'
                 )
                 with urllib.request.urlopen(req, timeout=8) as resp:
                     status = resp.status
-                    # Read to make sure response is consumed
                     body = resp.read().decode('utf-8')
                     self.log(f"Central Server notified successfully (Status {status}).", "success")
             except Exception as e:

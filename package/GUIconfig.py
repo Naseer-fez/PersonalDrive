@@ -161,6 +161,20 @@ class ServerConfigApp:
         self.jwt_spin = ttk.Spinbox(self.jwt_frame, from_=1, to=1440, textvariable=self.jwt_var, width=10)
         self.jwt_spin.pack(side=tk.LEFT, padx=5, pady=2)
 
+        # Brevo email configuration frame (shown when Allow Users is enabled)
+        self.brevo_frame = ttk.Frame(self.sec_frame)
+        ttk.Label(self.brevo_frame, text="Brevo API Key:").grid(row=0, column=0, sticky=tk.W, pady=2)
+        self.brevo_api_entry = ttk.Entry(self.brevo_frame, width=45)
+        self.brevo_api_entry.grid(row=0, column=1, padx=5, pady=2)
+        ttk.Label(self.brevo_frame, text="Sender Email:").grid(row=1, column=0, sticky=tk.W, pady=2)
+        self.sender_email_entry = ttk.Entry(self.brevo_frame, width=45)
+        self.sender_email_entry.grid(row=1, column=1, padx=5, pady=2)
+        self.create_help_link(
+            self.brevo_frame,
+            "Brevo Email Help",
+            "Brevo API Key:\nAPI key from Brevo (formerly Sendinblue) for sending transactional emails.\nRequired for password recovery emails.\n\nSender Email:\nThe verified sender email address configured in your Brevo account."
+        ).grid(row=0, column=2, rowspan=2, padx=10, sticky=tk.N)
+
         # 4. Rate Limiter Config
         self.rl_frame = ttk.LabelFrame(main_frame, text=LBL_RATE_LIMITER, padding="10")
         self.rl_frame.pack(fill=tk.X, pady=(0, 10))
@@ -314,8 +328,10 @@ class ServerConfigApp:
     def toggle_allow_users_state(self):
         if self.allow_users_var.get():
             self.jwt_frame.pack(fill=tk.X, pady=(5, 0), anchor=tk.W)
+            self.brevo_frame.pack(fill=tk.X, pady=(5, 0), anchor=tk.W)
         else:
             self.jwt_frame.pack_forget()
+            self.brevo_frame.pack_forget()
         self.auto_adjust_height()
 
     def toggle_rl_states(self):
@@ -376,6 +392,29 @@ class ServerConfigApp:
             allowusers_val = config.get("allowusers") if config.get("allowusers") is not None else config.get("Allowlogin", DEFAULT_ALLOW_USERS)
         self.allow_users_var.set(allowusers_val)
         self.jwt_var.set(server_data.get("jwtduration") or config.get("jwtduration", DEFAULT_JWT_MINUTES))
+
+        # Load Brevo email config from .env file if available
+        brevo_api_val = config.get('EmailAPi', '')
+        sender_email_val = config.get('sendemail', '')
+        env_path = os.path.join(self.workspace_dir, '.env')
+        if os.path.exists(env_path):
+            try:
+                with open(env_path, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if '=' in line:
+                            k, v = line.split('=', 1)
+                            if k.strip() == 'EmailAPi':
+                                brevo_api_val = v.strip()
+                            elif k.strip() == 'sendemail':
+                                sender_email_val = v.strip()
+            except Exception:
+                pass
+        self.brevo_api_entry.delete(0, tk.END)
+        self.brevo_api_entry.insert(0, brevo_api_val)
+        self.sender_email_entry.delete(0, tk.END)
+        self.sender_email_entry.insert(0, sender_email_val)
+
         self.toggle_allow_users_state()
         
         self.rl_enable_var.set(server_data.get("Ratelimiter") if "Ratelimiter" in server_data else config.get("Ratelimiter", DEFAULT_RATE_LIMITER))
@@ -767,6 +806,52 @@ class ServerConfigApp:
                 subprocess.run([sys.executable, url_script], cwd=self.workspace_dir, capture_output=True)
         except Exception as e:
             print(f"Warning: Failed to execute url.py to auto-fill frontend URL: {e}", file=sys.stderr)
+
+        # Write Brevo credentials to .env file
+        allow_users_value = self.allow_users_var.get()
+        brevo_api = self.brevo_api_entry.get().strip()
+        sender_email = self.sender_email_entry.get().strip()
+        workspace_dir = self.workspace_dir
+
+        if allow_users_value:
+            if not brevo_api or not sender_email:
+                # Show warning but don't block
+                import tkinter.messagebox as mb
+                mb.showwarning(
+                    "Email Configuration",
+                    "Brevo API Key and Sender Email are not configured.\n"
+                    "Password recovery via email will not work for users.\n\n"
+                    "You can configure these later in the settings."
+                )
+
+            # Write to .env file in workspace
+            env_path = os.path.join(workspace_dir, '.env')
+            env_lines = []
+            if os.path.exists(env_path):
+                with open(env_path, 'r') as f:
+                    env_lines = f.readlines()
+
+            # Update or append EmailAPi and sendemail
+            updated_keys = set()
+            new_lines = []
+            for line in env_lines:
+                key = line.split('=')[0].strip() if '=' in line else ''
+                if key == 'EmailAPi':
+                    new_lines.append(f'EmailAPi={brevo_api}\n')
+                    updated_keys.add('EmailAPi')
+                elif key == 'sendemail':
+                    new_lines.append(f'sendemail={sender_email}\n')
+                    updated_keys.add('sendemail')
+                else:
+                    new_lines.append(line)
+
+            if 'EmailAPi' not in updated_keys:
+                new_lines.append(f'EmailAPi={brevo_api}\n')
+            if 'sendemail' not in updated_keys:
+                new_lines.append(f'sendemail={sender_email}\n')
+
+            with open(env_path, 'w') as f:
+                f.writelines(new_lines)
 
         print(json.dumps(combined_config))
         sys.stdout.flush()
