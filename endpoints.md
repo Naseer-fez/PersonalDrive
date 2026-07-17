@@ -771,3 +771,27 @@ These endpoints require the JWT token passed in the `auth` header.
     > [!NOTE]
     > Note the double space in the error response string `recovering  the`.
 
+---
+
+### 24. Get Trash Data
+*Retrieve the list of all items currently in the trash directory, along with metadata.*
+
+- **Endpoint**: `/trashdata/<int:userid>/`
+- **Method**: `GET`
+- **Authentication**: Required (`auth` header)
+- **Content-Type**: `application/json`
+- **Responses**:
+  - **Success (`200 OK`)**:
+    ```json
+    [
+      {
+        "name": "filename.txt",
+        "path": "trash/filename.txt",
+        "type": "file",
+        "originalPath": "folder/filename.txt",
+        "size": 1234,
+        "modified": 1783626681
+      }
+    ]
+    ```
+

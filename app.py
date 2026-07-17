@@ -15,6 +15,7 @@ from routes.filestats.spaceleft import spacebp
 from routes.filesearch.searchfile import filesearch 
 from routes.fileoperations.recovertrash import recovertrash  ##used to move the file from the trash to its original postion
 from routes.fileoperations.deletetrash import trashbp
+from routes.fileoperations.gettrash import gettrashbp
 from routes.publicacces.accesspublic import publicbp
 from routes.publicacces.setpublic import setpublicbp
 from routes.folderoperations.folderupload import folderuploadbp
@@ -30,12 +31,12 @@ from routes.health import healthbp
 #Uttils
 from utils.auth import enableauth
 from utils.ratelimiter import enableratelimiter
+from utils.logs import logs
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
-from routes.main import resetlink,startngrok
+from routes.main import resetlink
 #Models
 from models.database import db
-import re
 load_dotenv()
 from config import config
 def Createapp():
@@ -50,7 +51,7 @@ def Createapp():
     CORS(
         app,
         resources={r"/*": {"origins": "*" if FrontendURL == ['*'] else FrontendURL}},
-        allow_headers=["Content-Type", "Authorization", "auth", "ngrok-skip-browser-warning"],
+        allow_headers=["*"],
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         supports_credentials=False,
     )
@@ -62,7 +63,7 @@ def Createapp():
     routes=[uploadbp,downloadbp,structurebp,deletefilebp,
                 updatefilebp,createbp,postionbp,spacebp,filesearch,trashbp,
                 setpublicbp,publicbp,folderuploadbp,healthbp,
-                recovertrash,docsbp]
+                recovertrash,docsbp,gettrashbp]
     if config.get("allowusers", 0):
         app.config["JWT_SECRET_KEY"]=os.getenv("jwt") or os.getenv("secret") #Secret
         for endpoint in loginoperations:
@@ -73,16 +74,20 @@ def Createapp():
         #DATABASE
         app.config['SQLALCHEMY_DATABASE_URI']=os.getenv("Database","sqlite:///users.db")
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-        
         db.init_app(app)
         with app.app_context():
             db.create_all()
-
+    else:
+        from utils.Storage import LocalStorage
+        User=LocalStorage()
+        User.createnewuser(userid=0)
 
     
     for blueprint in routes:
         app.register_blueprint(blueprint)
     
+    logs(app)
+
     return app
 app=Createapp()
 
@@ -99,4 +104,6 @@ if __name__ == "__main__":
             app.config["link"] = LINK
 
     threading.Thread(target=background_setup, daemon=True).start()
-    app.run(host="0.0.0.0", port=5002, debug=False)
+    port=config.get("port",5002)
+    host=config.get("host","0.0.0.0")
+    app.run(host=host, port=int(port), debug=False)

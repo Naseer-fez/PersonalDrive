@@ -21,19 +21,6 @@ class FolderStructure:
         filepath=Fileoperation.getfilepath(userid=self.userid,filename=None)
         statspath=filepath.parent/"files.json" 
         self.Directory=self.FolderTraverse(Foldernames=Fileoperation.Allfiles(folderpath),Folderpath=folderpath)
-        
-        # Traverse the user's trash folder (DestinationFolder/trash/userid/) and append it to self.Directory
-        trashpath = Fileoperation.getfilepath(userid=self.userid, filename=Fileoperation.trash)
-        if Fileoperation.pathexist(trashpath) and Fileoperation.isdirectory(trashpath):
-            trash_files = Fileoperation.Allfiles(trashpath)
-            trash_children = self.FolderTraverse(Foldernames=trash_files, Folderpath=trashpath)
-            self.Directory.append({
-                "Name": Fileoperation.trash,
-                "type": "Folder",
-                "path": Fileoperation.trash,
-                "children": trash_children
-            })
-            
         Fileoperation.jsonwrite(self.userid,data=self.Directory,fileindent=4)  ##Forfolderstructure
         # print(statspath)
         Fileoperation.jsonwrite(self.userid,data=self.allfiles,fileindent=4,filepath=statspath)

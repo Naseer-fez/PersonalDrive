@@ -210,6 +210,8 @@ class LocalStorage:
         Path(filepath).mkdir(parents=True, exist_ok=True)
         Path(jsonfilepath).parent.mkdir(parents=True, exist_ok=True)
         self.jsonwrite(userid=userid, data=[], filepath=jsonfilepath)
+        trashpath = self.getfilepath(userid=userid, filename=self.trash)
+        Path(trashpath).mkdir(parents=True, exist_ok=True)
         return 
 
     def fileexist(self,userid,filepath):

@@ -11,7 +11,7 @@ folderuploadbp=Blueprint('folderupload',__name__)
 @folderuploadbp.route("/uploadfolder/<int:Userid>/",methods=["POST"]) 
 def home(Userid):
     fileslist=request.files.getlist("files")
-    if fileslist is None:
+    if not fileslist:
         return jsonify({"return":"No folder uploaded"}),400
     uploadsize = request.content_length
     if totalspaceused(Userid)["remaningspace"] < uploadsize:
@@ -19,8 +19,18 @@ def home(Userid):
     directory=request.form.get("directory")
     if directory is None:
         return  jsonify({"return":"No folder path mentioned"}),400
+    
+    # Clean the directory path to make it relative (prevent path traversal or drive root reset)
+    clean_parts = []
+    for part in Path(directory).parts:
+        cleaned = part.rstrip('\\/')
+        if cleaned.endswith(':') or cleaned in ('', '.', '..'):
+            continue
+        clean_parts.append(part)
+    safe_dir = Path(*clean_parts)
+    
     Destination=config.get("DestinationFolder")
-    directory=Path(os.path.join(Destination,str(Userid),directory))
+    directory=Path(Destination)/str(Userid)/safe_dir
     #first create the directory
     directory.mkdir(parents=True,exist_ok=True) #directory is created 
     #now stream the file
@@ -33,7 +43,13 @@ def home(Userid):
 
         for file in fileslist:
             # Clean and normalize path to support subdirectories
-            rel_path = file.filename.replace("\\", "/")
+            rel_path = Path(file.filename.replace("\\", "/"))
+            rel_path = Path(*[
+                part for part in rel_path.parts
+                if part not in ("", ".", "..") and not part.endswith(":")
+            ])
+            if not rel_path.parts:
+                continue
             filepath = directory / rel_path
             filepath.parent.mkdir(parents=True, exist_ok=True)
             newpath = filecheck(filepath)
