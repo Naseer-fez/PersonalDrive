@@ -30,6 +30,8 @@ def main():
         config.reload()
         
         def transition():
+            if not root.winfo_exists():
+                return
             # Clear all setup widgets from the root window
             for widget in root.winfo_children():
                 widget.destroy()
@@ -37,7 +39,7 @@ def main():
             # Start Phase 2 (Server Configuration) inside the same root window
             build_config_gui()
             
-        root.after(100, transition)
+        root.after_idle(transition)
 
     def on_setup_cancel():
         root.destroy()
@@ -47,7 +49,8 @@ def main():
     def on_config_complete(combined_config):
         nonlocal config_completed
         config_completed = True
-        root.destroy()
+        if root.winfo_exists():
+            root.destroy()
 
     def on_config_cancel():
         root.destroy()
@@ -62,6 +65,7 @@ def main():
 
     if config_completed:
         print(f"\n{APP_DISPLAY_NAME} setup and configuration complete!")
+        sys.exit(0)
     else:
         print("Configuration was cancelled by the user.")
         sys.exit(1)

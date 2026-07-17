@@ -12,8 +12,19 @@ Fileoperation=get_storage()
 def Home(userid,data):
     userid=str(userid)
     filename=str(data.get("filepath"))
-    operation = 1 if data.get("trash") is None else data.get("trash")
-    replace= 0 if data.get("replace") is None else data.get("replace")
+    
+    trash_val = data.get("trash")
+    try:
+        operation = 1 if trash_val is None else int(trash_val)
+    except (ValueError, TypeError):
+        operation = 1 if str(trash_val).lower() == 'true' else 0
+
+    replace_val = data.get("replace")
+    try:
+        replace = 0 if replace_val is None else int(replace_val)
+    except (ValueError, TypeError):
+        replace = 1 if str(replace_val).lower() == 'true' else 0
+        
     tosend=deletefile(userid=(userid),filename=filename,operation=operation,replace=replace)
     filesize=tosend[2]
     if tosend[0] ==0:

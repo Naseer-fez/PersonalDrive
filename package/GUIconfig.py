@@ -13,7 +13,7 @@ try:
         DEFAULT_FREQUENCY, DEFAULT_RESET_SEC, DEFAULT_COOLDOWN_SEC,
         DEFAULT_FRONTEND_URL, DEFAULT_CORS_ORIGIN, DEFAULT_ALLOW_USERS, DEFAULT_RATE_LIMITER,
         DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS,
-        SERVER_CONFIG_FILE, CODE_CONFIG_SCRIPT
+        SERVER_CONFIG_FILE, CODE_CONFIG_SCRIPT, apply_google_light_theme
     )
 except ImportError:
     from package.pckconfig import (
@@ -23,7 +23,7 @@ except ImportError:
         DEFAULT_FREQUENCY, DEFAULT_RESET_SEC, DEFAULT_COOLDOWN_SEC,
         DEFAULT_FRONTEND_URL, DEFAULT_CORS_ORIGIN, DEFAULT_ALLOW_USERS, DEFAULT_RATE_LIMITER,
         DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS,
-        SERVER_CONFIG_FILE, CODE_CONFIG_SCRIPT
+        SERVER_CONFIG_FILE, CODE_CONFIG_SCRIPT, apply_google_light_theme
     )
 
 class ServerConfigApp:
@@ -37,7 +37,7 @@ class ServerConfigApp:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         
         self.style = ttk.Style()
-        self.style.theme_use('vista' if 'vista' in self.style.theme_names() else 'clam')
+        apply_google_light_theme(self.style, self.root)
         
         self.workspace_dir = os.path.normpath(config.get("dir") or os.getcwd())
         
@@ -65,7 +65,7 @@ class ServerConfigApp:
         lbl = ttk.Label(
             parent, 
             text="[?]", 
-            foreground="#0066cc", 
+            foreground="#1a73e8", 
             cursor="hand2",
             font=("Segoe UI", 9, "bold")
         )
@@ -97,6 +97,54 @@ class ServerConfigApp:
             "Storage Directories Help",
             "Destination Folder:\nWhere uploaded files are stored.\n\nUser Details Folder:\nStores local user databases and profiles."
         ).grid(row=0, column=3, rowspan=2, padx=10, sticky=tk.N)
+
+        # 1.5 System Paths Setup (Workspace, Python, Cloudflared, Ngrok Token) - DYNAMIC
+        self.sys_setup_frame = ttk.LabelFrame(main_frame, text=" Workspace & System Setup ", padding="10")
+        self.sys_setup_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        sys_header_row = ttk.Frame(self.sys_setup_frame)
+        sys_header_row.pack(fill=tk.X)
+        
+        self.show_sys_setup_var = tk.BooleanVar(value=False)
+        self.sys_setup_check = ttk.Checkbutton(
+            sys_header_row,
+            text="Show Workspace & System Settings",
+            variable=self.show_sys_setup_var,
+            command=self.toggle_sys_setup
+        )
+        self.sys_setup_check.pack(side=tk.LEFT)
+        
+        self.create_help_link(
+            sys_header_row,
+            "Workspace & System Setup Help",
+            "Workspace Folder:\nThe root folder where the server code and main configuration are stored.\n\nPython Executable:\nThe python interpreter path used to execute waitress/flask.\n\nCloudflared Tunnel Executable:\nThe path to cloudflared.exe for public url creation.\n\nNgrok Token:\nNgrok auth token for ngrok-tunnel fallback."
+        ).pack(side=tk.LEFT, padx=10)
+        
+        self.sys_fields_frame = ttk.Frame(self.sys_setup_frame)
+        
+        # Grid layout for self.sys_fields_frame
+        ttk.Label(self.sys_fields_frame, text="Workspace Path:").grid(row=0, column=0, sticky=tk.W, pady=2)
+        self.workspace_var = tk.StringVar()
+        self.workspace_entry = ttk.Entry(self.sys_fields_frame, textvariable=self.workspace_var, width=45)
+        self.workspace_entry.grid(row=0, column=1, padx=5, pady=2)
+        ttk.Button(self.sys_fields_frame, text="Browse", command=self.on_workspace_browse).grid(row=0, column=2, pady=2)
+        
+        ttk.Label(self.sys_fields_frame, text="Python Executable:").grid(row=1, column=0, sticky=tk.W, pady=2)
+        self.python_var = tk.StringVar()
+        self.python_entry = ttk.Entry(self.sys_fields_frame, textvariable=self.python_var, width=45)
+        self.python_entry.grid(row=1, column=1, padx=5, pady=2)
+        ttk.Button(self.sys_fields_frame, text="Browse", command=self.on_python_browse).grid(row=1, column=2, pady=2)
+        
+        ttk.Label(self.sys_fields_frame, text="Cloudflared Path:").grid(row=2, column=0, sticky=tk.W, pady=2)
+        self.cf_var = tk.StringVar()
+        self.cf_entry = ttk.Entry(self.sys_fields_frame, textvariable=self.cf_var, width=45)
+        self.cf_entry.grid(row=2, column=1, padx=5, pady=2)
+        ttk.Button(self.sys_fields_frame, text="Browse", command=self.on_cf_browse).grid(row=2, column=2, pady=2)
+        
+        ttk.Label(self.sys_fields_frame, text="Ngrok Auth Token:").grid(row=3, column=0, sticky=tk.W, pady=2)
+        self.ngrok_token_var = tk.StringVar()
+        self.ngrok_token_entry = ttk.Entry(self.sys_fields_frame, textvariable=self.ngrok_token_var, width=45)
+        self.ngrok_token_entry.grid(row=3, column=1, columnspan=2, padx=5, pady=2, sticky=tk.EW)
 
         # 2. Limits Config
         limits_frame = ttk.LabelFrame(main_frame, text=LBL_LIMITS, padding="10")
@@ -148,7 +196,7 @@ class ServerConfigApp:
         help_btn = ttk.Label(
             sec_header_row,
             text="Visit Website for Help",
-            foreground="#0066cc",
+            foreground="#1a73e8",
             cursor="hand2",
             font=("Segoe UI", 9, "underline")
         )
@@ -253,7 +301,7 @@ class ServerConfigApp:
         self.api_key_help = ttk.Label(
             net_grid,
             text="Get API Key",
-            foreground="#0066cc",
+            foreground="#1a73e8",
             cursor="hand2",
             font=("Segoe UI", 9, "underline")
         )
@@ -322,7 +370,7 @@ class ServerConfigApp:
         self.cancel_btn = ttk.Button(action_frame, text="Cancel", command=self.on_close)
         self.cancel_btn.pack(side=tk.LEFT)
 
-        self.finish_btn = ttk.Button(action_frame, text="Finish Configuration", command=self.handle_finish)
+        self.finish_btn = ttk.Button(action_frame, text="Finish Configuration", command=self.handle_finish, style="Accent.TButton")
         self.finish_btn.pack(side=tk.RIGHT)
 
     def toggle_allow_users_state(self):
@@ -356,6 +404,46 @@ class ServerConfigApp:
         else:
             self.adv_net_frame.pack_forget()
         self.auto_adjust_height()
+
+    def toggle_sys_setup(self):
+        if self.show_sys_setup_var.get():
+            self.sys_fields_frame.pack(fill=tk.X, pady=(5, 0))
+        else:
+            self.sys_fields_frame.pack_forget()
+        self.auto_adjust_height()
+
+    def on_workspace_browse(self):
+        folder = filedialog.askdirectory(initialdir=self.workspace_var.get() or self.workspace_dir, title="Select Workspace Folder")
+        if folder:
+            normalized = os.path.normpath(folder)
+            self.workspace_var.set(normalized)
+            ans = messagebox.askyesno(
+                "Update Storage Folders?",
+                "Would you like to reset the Storage and Rate Limiter database directories to be inside this new workspace?",
+                parent=self.root
+            )
+            if ans:
+                self.dest_var.set(os.path.normpath(os.path.join(normalized, "test")))
+                self.user_var.set(os.path.normpath(os.path.join(normalized, "userdetails")))
+                self.rl_path_var.set(os.path.normpath(os.path.join(normalized, "data")))
+
+    def on_python_browse(self):
+        file = filedialog.askopenfilename(
+            initialdir=os.path.dirname(self.python_var.get()) if self.python_var.get() else None,
+            title="Select Python Executable",
+            filetypes=[("Executable Files", "*.exe"), ("All Files", "*.*")]
+        )
+        if file:
+            self.python_var.set(os.path.normpath(file))
+
+    def on_cf_browse(self):
+        file = filedialog.askopenfilename(
+            initialdir=os.path.dirname(self.cf_var.get()) if self.cf_var.get() else None,
+            title="Select Cloudflared/Ngrok Executable",
+            filetypes=[("Executable Files", "*.exe"), ("All Files", "*.*")]
+        )
+        if file:
+            self.cf_var.set(os.path.normpath(file))
 
     def auto_adjust_height(self):
         self.root.update_idletasks()
@@ -415,6 +503,31 @@ class ServerConfigApp:
         self.sender_email_entry.delete(0, tk.END)
         self.sender_email_entry.insert(0, sender_email_val)
 
+        # Load Workspace & Dependency Settings
+        self.workspace_var.set(os.path.normpath(
+            server_data.get("dir") or 
+            config.get("dir") or 
+            self.workspace_dir
+        ))
+        self.python_var.set(os.path.normpath(
+            server_data.get("python") or 
+            config.get("python") or 
+            ""
+        ))
+        self.cf_var.set(os.path.normpath(
+            server_data.get("cloudflared") or 
+            config.get("cloudflared") or 
+            server_data.get("ngrok") or 
+            config.get("ngrok") or 
+            ""
+        ))
+        self.ngrok_token_var.set(
+            server_data.get("ngrok_token") or 
+            config.get("ngrok_token") or 
+            ""
+        )
+        self.toggle_sys_setup()
+
         self.toggle_allow_users_state()
         
         self.rl_enable_var.set(server_data.get("Ratelimiter") if "Ratelimiter" in server_data else config.get("Ratelimiter", DEFAULT_RATE_LIMITER))
@@ -424,7 +537,7 @@ class ServerConfigApp:
             os.path.join(self.workspace_dir, "data")
         ))
         self.freq_var.set(server_data.get("Allowfreq") or config.get("Allowfreq", DEFAULT_FREQUENCY))
-        self.reset_var.set(server_data.get("Resettime") or config.get("Resettime", DEFAULT_RESET_SEC))
+        self.reset_var.set(server_data.get("resettime") or config.get("resettime", DEFAULT_RESET_SEC))
         self.cooldown_var.set(server_data.get("cooldowntime") or config.get("cooldowntime", DEFAULT_COOLDOWN_SEC))
         self.toggle_rl_states()
         
@@ -464,9 +577,9 @@ class ServerConfigApp:
             with open(config_py_path, 'r', encoding='utf-8') as f:
                 content = f.read()
                 
-            pattern = r'^PATH\s*=\s*[\'"].*?[\'"]'
+            pattern = r'((?:^\s*PATH|self\.path)\s*=\s*[\'"]).*?([\'"])'
             normalized_path = target_config_json_path.replace("\\", "/")
-            replacement = f'PATH="{normalized_path}"'
+            replacement = rf'\g<1>{normalized_path}\g<2>'
             
             new_content, count = re.subn(pattern, replacement, content, flags=re.MULTILINE)
             
@@ -490,6 +603,7 @@ class ServerConfigApp:
         dialog.resizable(False, False)
         dialog.grab_set()
         dialog.transient(self.root)
+        dialog.configure(bg="#ffffff")
         
         # Center on parent
         dialog.update_idletasks()
@@ -568,7 +682,7 @@ class ServerConfigApp:
             dialog.destroy()
         
         ttk.Button(btn_frame, text="Skip", command=on_skip).pack(side=tk.LEFT)
-        ttk.Button(btn_frame, text="Create Account", command=on_create).pack(side=tk.RIGHT)
+        ttk.Button(btn_frame, text="Create Account", command=on_create, style="Accent.TButton").pack(side=tk.RIGHT)
         
         username_entry.focus_set()
         self.root.wait_window(dialog)
@@ -584,6 +698,7 @@ class ServerConfigApp:
         dialog.resizable(False, False)
         dialog.grab_set()
         dialog.transient(self.root)
+        dialog.configure(bg="#ffffff")
         
         dialog.update_idletasks()
         x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (250)
@@ -608,6 +723,8 @@ class ServerConfigApp:
             wrap=tk.WORD,
             font=("Segoe UI", 10),
             background=dialog.cget("background"),
+            foreground="#202124",
+            insertbackground="#202124",
             borderwidth=0,
             highlightthickness=0,
             height=10,
@@ -647,7 +764,7 @@ class ServerConfigApp:
             result[0] = True
             dialog.destroy()
         
-        ttk.Button(btn_frame, text="Go Back (Recommended)", command=go_back).pack(side=tk.LEFT)
+        ttk.Button(btn_frame, text="Go Back (Recommended)", command=go_back, style="Accent.TButton").pack(side=tk.LEFT)
         ttk.Button(btn_frame, text="Continue Anyway", command=continue_anyway).pack(side=tk.RIGHT)
         
         self.root.wait_window(dialog)
@@ -736,7 +853,7 @@ class ServerConfigApp:
             "URL": self.url_var.get().strip(),
             "Ratelimiter": self.rl_enable_var.get(),
             "Allowfreq": self.freq_var.get(),
-            "Resettime": self.reset_var.get(),
+            "resettime": self.reset_var.get(),
             "cooldowntime": self.cooldown_var.get(),
             "host": self.host_var.get().strip() if hasattr(self, "host_var") and self.host_var.get() else "0.0.0.0",
             "port": self.port_var.get() if hasattr(self, "port_var") and self.port_var.get() else 5000,
@@ -748,20 +865,19 @@ class ServerConfigApp:
             "opt_password": self.opt_password_var.get().strip() if hasattr(self, "opt_password_var") else ""
         }
 
-        # 2. Retrieve setup/installer config properties from packageconfig.json
-        package_data = {}
-        try:
-            package_data = {
-                "dir": config.get("dir", ""),
-                "python": config.get("python", ""),
-                "ngrok": config.get("ngrok", ""),
-                "ngrok_token": config.get("ngrok_token", "")
-            }
-        except Exception:
-            pass
+        # 2. Retrieve setup/installer config properties from input fields
+        package_data = {
+            "dir": os.path.normpath(self.workspace_var.get().strip()),
+            "workspace_path": os.path.normpath(self.workspace_var.get().strip()),
+            "python": os.path.normpath(self.python_var.get().strip()),
+            "cloudflared": os.path.normpath(self.cf_var.get().strip()),
+            "ngrok": os.path.normpath(self.cf_var.get().strip()),
+            "ngrok_token": self.ngrok_token_var.get().strip()
+        }
 
         # 3. Create combined dictionary holding ALL settings together
-        config_json_path = os.path.normpath(os.path.join(self.workspace_dir, SERVER_CONFIG_FILE))
+        new_workspace = os.path.normpath(self.workspace_var.get().strip())
+        config_json_path = os.path.normpath(os.path.join(new_workspace, SERVER_CONFIG_FILE))
         combined_config = {}
         combined_config.update(server_data)
         combined_config.update(package_data)
@@ -790,20 +906,21 @@ class ServerConfigApp:
             messagebox.showerror("Warning", f"Failed to save package config: {e}")
 
         # 6. Update PATH variable in pointed repository's config.py file
-        config_py_path = os.path.join(self.workspace_dir, CODE_CONFIG_SCRIPT)
+        config_py_path = os.path.join(new_workspace, CODE_CONFIG_SCRIPT)
         if os.path.exists(config_py_path):
             updated = self.update_config_py_path(config_py_path, config_json_path)
             if not updated:
                 print(f"Warning: Could not update config.py variable in {config_py_path}", file=sys.stderr)
         else:
-            print(f"Warning: {CODE_CONFIG_SCRIPT} not found in {self.workspace_dir}", file=sys.stderr)
+            print(f"Warning: {CODE_CONFIG_SCRIPT} not found in {new_workspace}", file=sys.stderr)
 
         # 7. Auto-fill the frontend URL via url.py
         try:
-            url_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "url.py")
-            if os.path.exists(url_script):
-                import subprocess
-                subprocess.run([sys.executable, url_script], cwd=self.workspace_dir, capture_output=True)
+            try:
+                from url import update_frontend_url
+            except ImportError:
+                from package.url import update_frontend_url
+            update_frontend_url(new_workspace)
         except Exception as e:
             print(f"Warning: Failed to execute url.py to auto-fill frontend URL: {e}", file=sys.stderr)
 
@@ -811,7 +928,7 @@ class ServerConfigApp:
         allow_users_value = self.allow_users_var.get()
         brevo_api = self.brevo_api_entry.get().strip()
         sender_email = self.sender_email_entry.get().strip()
-        workspace_dir = self.workspace_dir
+        workspace_dir = new_workspace
 
         if allow_users_value:
             if not brevo_api or not sender_email:
@@ -856,17 +973,17 @@ class ServerConfigApp:
         print(json.dumps(combined_config))
         sys.stdout.flush()
         
-        self.root.destroy()
         if self.on_complete:
             self.on_complete(combined_config)
         else:
+            self.root.destroy()
             sys.exit(0)
 
     def on_close(self):
-        self.root.destroy()
         if self.on_cancel:
             self.on_cancel()
         else:
+            self.root.destroy()
             sys.exit(0)
 
     def show_more_settings(self):
@@ -877,6 +994,7 @@ class ServerConfigApp:
         dialog.resizable(False, False)
         dialog.grab_set()
         dialog.transient(self.root)
+        dialog.configure(bg="#ffffff")
         
         # Center on parent
         dialog.update_idletasks()
@@ -965,7 +1083,7 @@ class ServerConfigApp:
         self.apply_speed_check.pack(anchor=tk.W, pady=(5, 5))
         
         def run_test():
-            status_lbl.config(text="Testing download speed... please wait.", foreground="#0066cc")
+            status_lbl.config(text="Testing download speed... please wait.", foreground="#1a73e8")
             test_btn.config(state="disabled")
             
             def thread_func():
@@ -997,12 +1115,12 @@ class ServerConfigApp:
                     
                     speed_val = max(1, int(speed_mbps))
                     result_text = f"Download Speed: {speed_mbps:.2f} Mbps ({desc})"
-                    dialog.after(0, lambda: status_lbl.config(text=result_text, foreground="green"))
+                    dialog.after(0, lambda: status_lbl.config(text=result_text, foreground="#1e8e3e"))
                     
                     if self.apply_speed_var.get():
                         dialog.after(0, lambda: self.size_var.set(speed_val))
                 except Exception as ex:
-                    dialog.after(0, lambda: status_lbl.config(text=f"Speed test failed: {ex}", foreground="red"))
+                    dialog.after(0, lambda: status_lbl.config(text=f"Speed test failed: {ex}", foreground="#d93025"))
                 finally:
                     dialog.after(0, lambda: test_btn.config(state="normal"))
             
@@ -1025,6 +1143,7 @@ class ServerConfigApp:
         dialog.resizable(False, False)
         dialog.grab_set()
         dialog.transient(self.root)
+        dialog.configure(bg="#ffffff")
         
         # Center on parent
         dialog.update_idletasks()
@@ -1063,7 +1182,7 @@ class ServerConfigApp:
         help_link = ttk.Label(
             fields,
             text="Get API Key",
-            foreground="#0066cc",
+            foreground="#1a73e8",
             cursor="hand2",
             font=("Segoe UI", 9, "underline")
         )
@@ -1087,7 +1206,7 @@ class ServerConfigApp:
             dialog.destroy()
             
         ttk.Button(btn_frame, text="Skip", command=on_skip).pack(side=tk.LEFT)
-        ttk.Button(btn_frame, text="Save & Finish", command=on_save).pack(side=tk.RIGHT)
+        ttk.Button(btn_frame, text="Save & Finish", command=on_save, style="Accent.TButton").pack(side=tk.RIGHT)
         
         api_entry.focus_set()
         self.root.wait_window(dialog)

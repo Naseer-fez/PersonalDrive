@@ -1,4 +1,6 @@
 from .Storage import get_storage
+import os
+import shutil
 Fileoperation=get_storage()
 
 
@@ -51,5 +53,44 @@ def addtotrash(userid,filepath):
         
         
         
+def deletefromtrash(userid, trashpath):
+    userid = str(userid)
+    data, filepath = Fileoperation.trashdata(userid=userid)
+    if data is None or data == 0:
+        return 0
+    trashpath = str(trashpath)
+    
+    def clean_path(p):
+        p = p.replace("\\", "/").strip("/")
+        trash_prefix = f"{Fileoperation.trash}/"
+        if p.startswith(trash_prefix):
+            p = p[len(trash_prefix):]
+        return p
+
+    target = clean_path(trashpath)
+    matched_key = None
+    
+    for key, val in data.items():
+        if clean_path(key) == target:
+            matched_key = key
+            break
+            
+    if matched_key is None:
+        return 0
+        
+    abspath = Fileoperation.getfilepath(userid=userid, filename=matched_key)
+    try:
+        if Fileoperation.isdirectory(abspath):
+            shutil.rmtree(abspath)
+        else:
+            os.unlink(abspath)
+    except Exception:
+        pass
+        
+    del data[matched_key]
+    Fileoperation.jsonwrite(userid=userid, data=data, filepath=filepath)
+    return 1
+
+
 if __name__=="__main__":
     print(recovertrash("2",r"hello\README.md"))

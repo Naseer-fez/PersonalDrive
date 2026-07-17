@@ -2,11 +2,11 @@
 
 
 a = Analysis(
-    ['d:\\CODE\\PYTHON\\CODE\\Projects\\Personaldrive\\package\\server_launcher.py'],
+    ['D:\\CODE\\PYTHON\\CODE\\Projects\\Personaldrive\\package\\server_launcher.py'],
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=['pckconfig', 'packages'],
+    hiddenimports=['pckconfig', 'packages', 'GUIconfig', 'installdepen', 'pipinstaller', 'controler', 'urls', 'url'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

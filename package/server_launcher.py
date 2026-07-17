@@ -19,14 +19,16 @@ from datetime import datetime
 try:
     from pckconfig import (
         config, APP_DISPLAY_NAME, APP_NAME,
-        DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS, CENTRAL_SERVER_URL
+        DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS, CENTRAL_SERVER_URL,
+        apply_google_light_theme
     )
     from packages import packages
     from GUIconfig import ServerConfigApp
 except ImportError:
     from package.pckconfig import (
         config, APP_DISPLAY_NAME, APP_NAME,
-        DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS, CENTRAL_SERVER_URL
+        DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS, CENTRAL_SERVER_URL,
+        apply_google_light_theme
     )
     from package.packages import packages
     from package.GUIconfig import ServerConfigApp
@@ -42,19 +44,27 @@ class ServerLauncher:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
         self.style = ttk.Style()
-        self.style.theme_use('vista' if 'vista' in self.style.theme_names() else 'clam')
+        apply_google_light_theme(self.style, self.root)
 
         # Process handles
         self.server_process = None
-        self.ngrok_process = None
+        self.tunnel_process = None
         self.is_running = False
         self.log_thread_active = False
 
         # Load config
+        try:
+            config.sync_to_server_config()
+        except Exception:
+            pass
         self.workspace = config.get("dir", "")
         self.python_path = config.get("python", "")
-        self.ngrok_path = config.get("ngrok", "")
-        self.ngrok_token = config.get("ngrok_token", "")
+        
+        # Cloudflared bin setup
+        appdata_dir = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or os.path.expanduser("~")
+        self.bin_dir = os.path.join(appdata_dir, "PersonalDrive", "bin")
+        self.cloudflared_path = config.get("cloudflared", "") or os.path.join(self.bin_dir, "cloudflared.exe")
+        
         self.host = config.get("host", DEFAULT_HOST)
         self.port = config.get("port", DEFAULT_PORT)
         self.threads = config.get("threads", DEFAULT_THREADS)
@@ -114,7 +124,7 @@ class ServerLauncher:
                   font=("Segoe UI", 9), foreground="#555").pack(side=tk.LEFT, padx=(8, 0))
 
         # ── Public Access Section ──
-        url_frame = ttk.LabelFrame(main, text=" Public Access (Ngrok) ", padding="10")
+        url_frame = ttk.LabelFrame(main, text=" Public Access (Cloudflare Quick Tunnel) ", padding="10")
         url_frame.pack(fill=tk.X, pady=(0, 10))
 
         url_row = ttk.Frame(url_frame)
@@ -141,10 +151,10 @@ class ServerLauncher:
             font=("Consolas", 9),
             height=10,
             state="disabled",
-            background="#1e1e1e",
-            foreground="#d4d4d4",
-            insertbackground="#d4d4d4",
-            selectbackground="#264f78",
+            background="#f5f5f5",
+            foreground="#202124",
+            insertbackground="#202124",
+            selectbackground="#e8f0fe",
             borderwidth=0,
             highlightthickness=0,
             padx=8, pady=6
@@ -155,11 +165,11 @@ class ServerLauncher:
         self.log_text.config(yscrollcommand=scrollbar.set)
 
         # Tag configs for colored log output
-        self.log_text.tag_config("info", foreground="#d4d4d4")
-        self.log_text.tag_config("success", foreground="#4ec9b0")
-        self.log_text.tag_config("warning", foreground="#dcdcaa")
-        self.log_text.tag_config("error", foreground="#f44747")
-        self.log_text.tag_config("url", foreground="#569cd6", underline=True)
+        self.log_text.tag_config("info", foreground="#202124")
+        self.log_text.tag_config("success", foreground="#1e8e3e")
+        self.log_text.tag_config("warning", foreground="#b06000")
+        self.log_text.tag_config("error", foreground="#d93025")
+        self.log_text.tag_config("url", foreground="#1a73e8", underline=True)
 
         # ── Button Bar ──
         btn_frame = ttk.Frame(main)
@@ -167,7 +177,8 @@ class ServerLauncher:
 
         self.start_btn = ttk.Button(
             btn_frame, text="▶  Start Server",
-            command=self.start_all
+            command=self.start_all,
+            style="Accent.TButton"
         )
         self.start_btn.pack(side=tk.LEFT, padx=(0, 8))
 
@@ -283,26 +294,9 @@ class ServerLauncher:
         return venv_python
 
     # ── Ngrok URL Discovery ────────────────────────────────
-    def _get_ngrok_url(self, retries=10, delay=2):
-        """Poll ngrok's local API to get the public tunnel URL."""
-        api_url = "http://localhost:4040/api/tunnels"
-        for attempt in range(retries):
-            try:
-                req = urllib.request.Request(api_url)
-                with urllib.request.urlopen(req, timeout=3) as resp:
-                    data = json.loads(resp.read().decode())
-                    tunnels = data.get("tunnels", [])
-                    for tunnel in tunnels:
-                        public_url = tunnel.get("public_url", "")
-                        if public_url.startswith("https://"):
-                            return public_url
-                    # If no https, return any URL
-                    if tunnels:
-                        return tunnels[0].get("public_url", "")
-            except Exception:
-                pass
-            time.sleep(delay)
-        return None
+    def _get_cloudflared_url(self):
+        """Deprecated placeholder for backward compatibility"""
+        return self.url_var.get()
 
     # ── Start Sequence ─────────────────────────────────────
     def start_all(self):
@@ -319,7 +313,7 @@ class ServerLauncher:
             self.log("ERROR: Workspace directory not found.", "error")
             self.log(f"  Path: {self.workspace}", "error")
             self.log("Run PersonalDriveSetup.exe first to configure.", "error")
-            self.set_status("Configuration Error", "#f44747")
+            self.set_status("Configuration Error", "#d93025")
             self.root.after(0, lambda: self.start_btn.config(state="normal"))
             self.root.after(0, lambda: self.stop_btn.config(state="disabled"))
             return
@@ -328,22 +322,22 @@ class ServerLauncher:
         if not os.path.exists(app_py):
             self.log(f"ERROR: app.py not found in workspace.", "error")
             self.log(f"  Expected: {app_py}", "error")
-            self.set_status("Configuration Error", "#f44747")
+            self.set_status("Configuration Error", "#d93025")
             self.root.after(0, lambda: self.start_btn.config(state="normal"))
             self.root.after(0, lambda: self.stop_btn.config(state="disabled"))
             return
 
         # ── Step 1: Setup Virtual Environment ──
-        self.set_status("Setting up environment...", "#dcdcaa")
+        self.set_status("Setting up environment...", "#b06000")
         venv_python = self._ensure_venv()
         if not venv_python:
-            self.set_status("Setup Failed", "#f44747")
+            self.set_status("Setup Failed", "#d93025")
             self.root.after(0, lambda: self.start_btn.config(state="normal"))
             self.root.after(0, lambda: self.stop_btn.config(state="disabled"))
             return
 
         # ── Step 2: Start Waitress Server ──
-        self.set_status("Starting server...", "#dcdcaa")
+        self.set_status("Starting server...", "#b06000")
         bind_host = config.get("bind_host")
         local_host = config.get("local_host")
         register_host = local_host if self.host == bind_host else self.host
@@ -374,7 +368,7 @@ class ServerLauncher:
             )
         except FileNotFoundError:
             self.log("ERROR: Could not start server — venv python not found.", "error")
-            self.set_status("Start Failed", "#f44747")
+            self.set_status("Start Failed", "#d93025")
             self.root.after(0, lambda: self.start_btn.config(state="normal"))
             self.root.after(0, lambda: self.stop_btn.config(state="disabled"))
             return
@@ -388,7 +382,7 @@ class ServerLauncher:
             if out:
                 for line in out.strip().split("\n"):
                     self.log(f"  {line}", "error")
-            self.set_status("Server Crashed", "#f44747")
+            self.set_status("Server Crashed", "#d93025")
             self.server_process = None
             self.root.after(0, lambda: self.start_btn.config(state="normal"))
             self.root.after(0, lambda: self.stop_btn.config(state="disabled"))
@@ -401,57 +395,52 @@ class ServerLauncher:
         self.log_thread_active = True
         threading.Thread(target=self._stream_server_logs, daemon=True).start()
 
-        # ── Step 3: Configure Ngrok Auth ──
-        if self.ngrok_path and os.path.exists(self.ngrok_path) and self.ngrok_token:
-            self.set_status("Connecting ngrok...", "#dcdcaa")
-            self.log("Configuring ngrok authtoken...", "info")
+        # ── Step 3: Ensure Cloudflared Binary exists ──
+        self.set_status("Checking cloudflared...", "#b06000")
+        if not os.path.exists(self.cloudflared_path):
+            import shutil
+            find_cf = shutil.which("cloudflared") or shutil.which("cloudflared.exe")
+            if find_cf:
+                self.cloudflared_path = find_cf
+                self.log(f"Found cloudflared fallback in system PATH: {self.cloudflared_path}", "success")
+            else:
+                self.log("ERROR: cloudflared.exe not found. Please run PersonalDriveSetup.exe first to install dependencies.", "error")
+                self.set_status("● Running (Local Only)", "#1e8e3e")
+                self.log("─" * 45, "info")
+                self.log(f"{APP_DISPLAY_NAME} is ready (Local Only)!", "success")
+                self.log(f"  Local:  {local_url}", "info")
+                self.log("─" * 45, "info")
+                self.notify_central_server(local_url)
+                return
 
-            try:
-                subprocess.run(
-                    [self.ngrok_path, "config", "add-authtoken", self.ngrok_token],
-                    capture_output=True, text=True, check=True
-                )
-                self.log("Ngrok authtoken configured.", "success")
-            except subprocess.CalledProcessError as e:
-                self.log(f"WARNING: ngrok auth config failed: {e}", "warning")
+        # ── Step 4: Start Cloudflared Tunnel ──
+        self.set_status("Connecting cloudflared...", "#b06000")
+        self.log(f"Starting cloudflared tunnel → port {self.port}...", "info")
+        try:
+            self.tunnel_process = subprocess.Popen(
+                [self.cloudflared_path, "tunnel", "--url", f"http://127.0.0.1:{self.port}"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            )
+            # Start background thread to stream tunnel logs and extract the URL
+            self.log_thread_active = True
+            threading.Thread(target=self._stream_tunnel_logs, daemon=True).start()
+        except Exception as e:
+            self.log(f"ERROR: Failed to start cloudflared tunnel: {e}", "error")
+            self.tunnel_process = None
 
-            # ── Step 4: Start Ngrok Tunnel ──
-            self.log(f"Starting ngrok tunnel → port {self.port}...", "info")
-            try:
-                self.ngrok_process = subprocess.Popen(
-                    [self.ngrok_path, "http", f"{register_host}:{self.port}"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT
-                )
-            except FileNotFoundError:
-                self.log("WARNING: ngrok executable not found.", "warning")
-                self.ngrok_process = None
-
-            # ── Step 5: Retrieve Public URL ──
-            if self.ngrok_process:
-                self.log("Waiting for ngrok to establish tunnel...", "info")
-                public_url = self._get_ngrok_url()
-                if public_url:
-                    self.set_url(public_url)
-                    self.log(f"Public URL: {public_url}", "success")
-                else:
-                    self.log("WARNING: Could not retrieve ngrok public URL.", "warning")
-                    self.log("  Check http://localhost:4040 manually.", "warning")
-        else:
-            if not self.ngrok_path or not os.path.exists(self.ngrok_path):
-                self.log("Ngrok not configured — skipping tunnel.", "warning")
-            elif not self.ngrok_token:
-                self.log("Ngrok authtoken not set — skipping tunnel.", "warning")
-
-        # Fallback check: See if an active ngrok tunnel is already running (e.g. started by app.py)
-        if self.url_var.get() == "Not connected":
-            public_url = self._get_ngrok_url(retries=3, delay=1)
-            if public_url:
-                self.set_url(public_url)
-                self.log(f"Detected active ngrok tunnel: {public_url}", "success")
+        # Wait up to 15 seconds for the cloudflared URL to be captured
+        self.log("Waiting for cloudflared tunnel to establish...", "info")
+        for _ in range(15):
+            if self.url_var.get() != "Not connected":
+                break
+            time.sleep(1)
 
         # ── Done ──
-        self.set_status("● Running", "#4ec9b0")
+        self.set_status("● Running", "#1e8e3e")
         self.log("─" * 45, "info")
         self.log(f"{APP_DISPLAY_NAME} is ready!", "success")
         self.log(f"  Local:  {local_url}", "info")
@@ -481,21 +470,52 @@ class ServerLauncher:
         except Exception:
             pass
 
+    def _stream_tunnel_logs(self):
+        """Read cloudflared stdout line-by-line, display in log, and extract URL."""
+        import re
+        url_pattern = re.compile(r'https://[a-zA-Z0-9-]+\.trycloudflare\.com')
+        try:
+            while self.log_thread_active and self.tunnel_process:
+                line = self.tunnel_process.stdout.readline()
+                if not line:
+                    if self.tunnel_process.poll() is not None:
+                        break
+                    continue
+                stripped = line.strip()
+                if stripped:
+                    self.log(f"[cloudflared] {stripped}", "info")
+                    match = url_pattern.search(stripped)
+                    if match:
+                        url = match.group(0)
+                        if self.url_var.get() == "Not connected":
+                            self.set_url(url)
+                            self.log(f"Public Tunnel URL discovered: {url}", "success")
+                            os.environ["TUNNEL_URL"] = url
+                            try:
+                                config.set("tunnel_url", url)
+                            except Exception:
+                                pass
+        except Exception as e:
+            self.log(f"Error reading cloudflared logs: {e}", "warning")
+
     # ── Stop Sequence ──────────────────────────────────────
     def stop_all(self):
-        """Stop server and ngrok processes."""
+        """Stop server and cloudflared processes."""
         self.log("Stopping server...", "warning")
         self.log_thread_active = False
         self.is_running = False
 
-        if self.ngrok_process:
+        if self.tunnel_process:
             try:
-                self.ngrok_process.terminate()
-                self.ngrok_process.wait(timeout=5)
-                self.log("Ngrok tunnel closed.", "info")
+                self.tunnel_process.terminate()
+                self.tunnel_process.wait(timeout=5)
+                self.log("Cloudflared tunnel closed.", "info")
             except Exception:
-                self.ngrok_process.kill()
-            self.ngrok_process = None
+                try:
+                    self.tunnel_process.kill()
+                except Exception:
+                    pass
+            self.tunnel_process = None
 
         if self.server_process:
             try:
@@ -506,7 +526,7 @@ class ServerLauncher:
                 self.server_process.kill()
             self.server_process = None
 
-        self.set_status("Stopped", "gray")
+        self.set_status("Stopped", "#5f6368")
         self.url_var.set("Not connected")
         self.local_var.set("—")
         self.copy_btn.config(state="disabled")
@@ -579,14 +599,14 @@ class ServerLauncher:
     def open_config_gui(self):
         """Open the Server Configuration GUI in a new window."""
         config_win = tk.Toplevel(self.root)
+        config_win.configure(bg="#ffffff")
         
         def on_complete(combined_config):
             config_win.destroy()
             config.reload()
             self.workspace = config.get("dir", "")
             self.python_path = config.get("python", "")
-            self.ngrok_path = config.get("ngrok", "")
-            self.ngrok_token = config.get("ngrok_token", "")
+            self.cloudflared_path = config.get("cloudflared", "") or os.path.join(self.bin_dir, "cloudflared.exe")
             self.host = config.get("host", DEFAULT_HOST)
             self.port = config.get("port", DEFAULT_PORT)
             self.threads = config.get("threads", DEFAULT_THREADS)

@@ -7,5 +7,5 @@ gunicorn
 stream-zip
 waitress
 requests
-pymysql
+psycopg2-binary
 apirlpy

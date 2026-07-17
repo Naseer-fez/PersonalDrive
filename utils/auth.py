@@ -1,4 +1,4 @@
-from flask import request, jsonify
+from flask import request, jsonify, g
 from flask_jwt_extended import decode_token
 from flask_jwt_extended.exceptions import JWTExtendedException
 import os
@@ -10,7 +10,8 @@ PUBLIC = {
     "forgot.home", #forgotpassword
     "forgot.code",#codeofemail
     "forgot.verify",#verify page
-    "docs.home"#API Documentation
+    "docs.home",#API Documentation
+    "health.home" #Health check
 }
 
 def enableauth(app):
@@ -29,7 +30,7 @@ def enableauth(app):
             return ## Meaning1 the backend has sent the request
         try:
            value=decode_token(auth_header)
-           
+           g.username = value.get("sub")
         except JWTExtendedException:
             return jsonify({"error": "Unauthorized"}), 401
         except Exception:
@@ -37,3 +38,4 @@ def enableauth(app):
         return
 
     return
+

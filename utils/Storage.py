@@ -243,6 +243,8 @@ class LocalStorage:
             newlocation = tochange_path
         else:
             newlocation = self.getfilepath(userid=userid, filename=tochange)
+        if os.path.isdir(newlocation):
+            newlocation = newlocation / Path(oldpathlocation).name
             
         # Create destination parent directory if it does not exist
         newlocation.parent.mkdir(parents=True, exist_ok=True)

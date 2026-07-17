@@ -85,6 +85,8 @@ def build():
         try:
             os.remove(target_dist_exe)
             print(f"  Removed: {target_dist_exe}")
+            import time
+            time.sleep(1)  # Give Windows a moment to release the file handle
         except Exception as e:
             print(f"  Warning: Could not remove {target_dist_exe}: {e}")
 
@@ -93,7 +95,13 @@ def build():
 
     hidden_imports = [
         "pckconfig",
-        "packages"
+        "packages",
+        "GUIconfig",
+        "installdepen",
+        "pipinstaller",
+        "controler",
+        "urls",
+        "url",
     ]
 
     cmd = [

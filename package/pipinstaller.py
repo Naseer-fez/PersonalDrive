@@ -12,7 +12,7 @@ except ImportError:
     from package.packages import packages
 
 
-DIR = config.get("dir") or os.getcwd()
+DIR = config.get("workspace_path") or config.get("dir") or os.getcwd()
 VENV_DIR = "env"
 
 

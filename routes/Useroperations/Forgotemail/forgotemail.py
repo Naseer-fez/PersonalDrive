@@ -31,7 +31,7 @@ def code(data):
         return jsonify({"return":"no email sent"}),401
     info=STORAGE(email=email,otp=code,action="check")
     if not (info[0]):
-            return jsonify(info[0]),401
+            return jsonify(info[1]),401
     return jsonify(info[1]),200
     
     

@@ -6,7 +6,6 @@ flask_sqlalchemy
 gunicorn
 stream-zip
 waitress
-ngrok
 requests
 pymysql
 apirlpy

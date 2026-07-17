@@ -86,6 +86,8 @@ def build():
         "packages",
         "pipinstaller",
         "controler",
+        "urls",
+        "url",
     ]
 
     cmd = [

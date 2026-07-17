@@ -28,12 +28,20 @@ def writedb(data,update=0):
         
     
 def updatedb(data):
-    result=readdb(data,input=1)
-    if not result[0]:
-        return [0,"No user found"]
-    ROW=result[1]
+    logged_in_username = data.get("logged_in_username")
+    if logged_in_username:
+        try:
+            ROW = db.session.query(User).filter_by(username=logged_in_username).first()
+        except Exception as e:
+            return [0, str(e)]
+    else:
+        result=readdb(data,input=1)
+        if not result[0]:
+            return [0,"No user found"]
+        ROW=result[1]
+        
     if not ROW:
-        return[0,"NO user found"]
+        return [0,"No user found"]
     
     email=data.get("email")
     if email:
@@ -60,20 +68,24 @@ def updatedb(data):
     
 def readdb(data,input=0):
     username=data.get("username")
+    logged_in_username=data.get("logged_in_username")
     password=data.get("password")
     if(not password):
         return [0,"password not available"]
     email=data.get("email")
     
     try:
-        ROW=db.session.query(User).filter(
-            or_(User.username==username,User.email==email) ).first()
+        if logged_in_username:
+            ROW=db.session.query(User).filter_by(username=logged_in_username).first()
+        else:
+            ROW=db.session.query(User).filter(
+                or_(User.username==username,User.email==email) ).first()
         if not ROW and not input:
             userid=data.get("userid")
             if not userid: #means data is completely wrong
                 return [0,"No user found"]
             try: #also check by username also 
-                ROW=db.query.filter_by(userid=userid).first()
+                ROW=db.session.query(User).filter_by(userid=userid).first()
             except Exception as e:
                 return [0,str(e)]
         if not ROW:

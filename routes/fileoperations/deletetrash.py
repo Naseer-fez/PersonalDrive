@@ -3,6 +3,7 @@ from utils.Storage import get_storage
 from utils.acceptjson import getjson
 from utils.updatespace import updatespace
 from utils.FolderStructure import updatefilestructure
+from utils.trashfile import deletefromtrash
 
 trashbp=Blueprint("trash",__name__)
 Fileoperation=get_storage()
@@ -11,8 +12,12 @@ Fileoperation=get_storage()
 def Home(userid,data):
     userid=str(userid)
     filename=str(data.get("filepath"))
-    filesize=Fileoperation.Filesize(userid,filepath=filename)
-    obj=Fileoperation.deletefile(userid=userid,filepath=filename)
+    filesize=0
+    try:
+        filesize=Fileoperation.Filesize(userid,filepath=filename)
+    except Exception:
+        pass
+    obj=deletefromtrash(userid=userid,trashpath=filename)
     if not obj:
         return  jsonify({"return":"Some error removing the trash"}),400
     updatefilestructure(Userid=userid)

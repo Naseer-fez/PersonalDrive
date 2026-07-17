@@ -13,3 +13,10 @@ endpoint.md
 endpointref.md
 package/V1/
 *.exe
+plan.txt
+Codexplan/
+env/
+# PyInstaller build artifacts
+package/build/
+package/dist/
+package/*.spec

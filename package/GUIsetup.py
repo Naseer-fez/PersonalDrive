@@ -15,18 +15,20 @@ try:
         SETUP_TITLE, SETUP_STEP1_TITLE, SETUP_STEP2_TITLE, SETUP_STEP3_TITLE,
         HELP_TITLE, LBL_WORKSPACE, LBL_INSTALL_OPTIONS, LBL_NGROK_AUTH,
         LBL_CODE_SERVER, GITHUB_ZIP_URL, GITHUB_EXTRACTED_DIR,
-        NGROK_SIGNUP_URL, NGROK_DASHBOARD_URL, PYTHON_EXE, NGROK_EXE
+        NGROK_SIGNUP_URL, NGROK_DASHBOARD_URL, PYTHON_EXE, NGROK_EXE, CLOUDFLARED_EXE,
+        apply_google_light_theme
     )
-    from installdepen import PYTHON, NGROK
+    from installdepen import PYTHON, NGROK, CLOUDFLARED, downloadpython
 except ImportError:
     from package.pckconfig import (
         config, APP_NAME, APP_DISPLAY_NAME,
         SETUP_TITLE, SETUP_STEP1_TITLE, SETUP_STEP2_TITLE, SETUP_STEP3_TITLE,
         HELP_TITLE, LBL_WORKSPACE, LBL_INSTALL_OPTIONS, LBL_NGROK_AUTH,
         LBL_CODE_SERVER, GITHUB_ZIP_URL, GITHUB_EXTRACTED_DIR,
-        NGROK_SIGNUP_URL, NGROK_DASHBOARD_URL, PYTHON_EXE, NGROK_EXE
+        NGROK_SIGNUP_URL, NGROK_DASHBOARD_URL, PYTHON_EXE, NGROK_EXE, CLOUDFLARED_EXE,
+        apply_google_light_theme
     )
-    from package.installdepen import PYTHON, NGROK
+    from package.installdepen import PYTHON, NGROK, CLOUDFLARED, downloadpython
 
 class ProgramSetupApp:
     def __init__(self, root, on_complete=None, on_cancel=None):
@@ -41,7 +43,7 @@ class ProgramSetupApp:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         
         self.style = ttk.Style()
-        self.style.theme_use('vista' if 'vista' in self.style.theme_names() else 'clam')
+        apply_google_light_theme(self.style, self.root)
         
         self.create_widgets()
         self.load_saved_data()
@@ -66,7 +68,7 @@ class ProgramSetupApp:
 
         select_lbl = ttk.Label(
             path_frame, 
-            text="Select where you want to save the program:", 
+            text="Select where you want to store the data:", 
             font=("Segoe UI", 10)
         )
         select_lbl.pack(anchor=tk.W, pady=(0, 5))
@@ -81,7 +83,7 @@ class ProgramSetupApp:
         self.browse_btn = ttk.Button(path_row, text="Browse...", command=self.browse_directory)
         self.browse_btn.pack(side=tk.RIGHT)
 
-        self.next_btn = ttk.Button(path_frame, text="Next", command=self.handle_next)
+        self.next_btn = ttk.Button(path_frame, text="Next", command=self.handle_next, style="Accent.TButton")
         self.next_btn.pack(pady=(10, 0))
 
         options_frame = ttk.LabelFrame(self.screen1_frame, text=LBL_INSTALL_OPTIONS, padding="15")
@@ -89,8 +91,10 @@ class ProgramSetupApp:
 
         self.python_install_var = tk.BooleanVar(value=False)
         self.python_already_var = tk.BooleanVar(value=False)
-        self.ngrok_install_var = tk.BooleanVar(value=False)
-        self.ngrok_already_var = tk.BooleanVar(value=False)
+        self.cloudflared_install_var = tk.BooleanVar(value=False)
+        self.cloudflared_already_var = tk.BooleanVar(value=False)
+        self.ngrok_install_var = self.cloudflared_install_var # Alias for backward compatibility
+        self.ngrok_already_var = self.cloudflared_already_var # Alias for backward compatibility
 
         row1 = ttk.Frame(options_frame)
         row1.pack(fill=tk.X, pady=(0, 10))
@@ -104,14 +108,14 @@ class ProgramSetupApp:
         )
         self.install_python_btn.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 10))
 
-        self.install_ngrok_btn = ttk.Checkbutton(
+        self.install_cloudflared_btn = ttk.Checkbutton(
             row1, 
-            text="Install Ngrok", 
-            variable=self.ngrok_install_var,
+            text="Install Cloudflare", 
+            variable=self.cloudflared_install_var,
             style="Toolbutton",
-            command=self.update_ngrok_states
+            command=self.update_cloudflared_states
         )
-        self.install_ngrok_btn.pack(side=tk.RIGHT, expand=True, fill=tk.X, padx=(10, 0))
+        self.install_cloudflared_btn.pack(side=tk.RIGHT, expand=True, fill=tk.X, padx=(10, 0))
 
         row2 = ttk.Frame(options_frame)
         row2.pack(fill=tk.X)
@@ -125,14 +129,14 @@ class ProgramSetupApp:
         )
         self.python_already_btn.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 10))
 
-        self.ngrok_already_btn = ttk.Checkbutton(
+        self.cloudflared_already_btn = ttk.Checkbutton(
             row2, 
-            text="Ngrok Already Installed", 
-            variable=self.ngrok_already_var,
+            text="Cloudflare Already Installed", 
+            variable=self.cloudflared_already_var,
             style="Toolbutton",
-            command=self.update_ngrok_states
+            command=self.update_cloudflared_states
         )
-        self.ngrok_already_btn.pack(side=tk.RIGHT, expand=True, fill=tk.X, padx=(10, 0))
+        self.cloudflared_already_btn.pack(side=tk.RIGHT, expand=True, fill=tk.X, padx=(10, 0))
 
         # --- Screen 2 Container (Ngrok Authtoken Setup) ---
         self.screen2_frame = ttk.Frame(self.main_container, padding="20")
@@ -168,7 +172,7 @@ class ProgramSetupApp:
         self.help2_btn = ttk.Button(screen2_btn_frame, text="Help", command=self.open_help_dialog)
         self.help2_btn.pack(side=tk.LEFT)
         
-        self.next2_btn = ttk.Button(screen2_btn_frame, text="Next", command=self.handle_next2)
+        self.next2_btn = ttk.Button(screen2_btn_frame, text="Next", command=self.handle_next2, style="Accent.TButton")
         self.next2_btn.pack(side=tk.RIGHT)
 
         # --- Screen 3 Container (Code Server Setup) ---
@@ -209,17 +213,17 @@ class ProgramSetupApp:
             code_frame,
             textvariable=self.code_path_var,
             font=("Segoe UI", 9, "italic"),
-            foreground="blue"
+            foreground="#1a73e8"
         )
         self.code_path_lbl.pack(anchor=tk.W)
         
         screen3_btn_frame = ttk.Frame(self.screen3_frame)
         screen3_btn_frame.pack(fill=tk.X, side=tk.BOTTOM)
         
-        self.back3_btn = ttk.Button(screen3_btn_frame, text="Back", command=self.show_screen2)
+        self.back3_btn = ttk.Button(screen3_btn_frame, text="Back", command=self.show_screen1)
         self.back3_btn.pack(side=tk.LEFT)
         
-        self.finish_btn = ttk.Button(screen3_btn_frame, text="Finish", command=self.handle_finish)
+        self.finish_btn = ttk.Button(screen3_btn_frame, text="Finish", command=self.handle_finish, style="Accent.TButton")
         self.finish_btn.pack(side=tk.RIGHT)
         
         self.show_screen1()
@@ -231,10 +235,7 @@ class ProgramSetupApp:
         self.root.title(SETUP_STEP1_TITLE)
 
     def show_screen2(self):
-        self.screen1_frame.pack_forget()
-        self.screen3_frame.pack_forget()
-        self.screen2_frame.pack(fill=tk.BOTH, expand=True)
-        self.root.title(SETUP_STEP2_TITLE)
+        self.show_screen3()
 
     def show_screen3(self):
         self.screen1_frame.pack_forget()
@@ -252,17 +253,20 @@ class ProgramSetupApp:
             self.python_already_btn.configure(state="normal")
 
     def update_ngrok_states(self):
-        if self.ngrok_install_var.get():
-            self.ngrok_already_btn.configure(state="disabled")
-        elif self.ngrok_already_var.get():
-            self.install_ngrok_btn.configure(state="disabled")
+        self.update_cloudflared_states()
+
+    def update_cloudflared_states(self):
+        if self.cloudflared_install_var.get():
+            self.cloudflared_already_btn.configure(state="disabled")
+        elif self.cloudflared_already_var.get():
+            self.install_cloudflared_btn.configure(state="disabled")
         else:
-            self.install_ngrok_btn.configure(state="normal")
-            self.ngrok_already_btn.configure(state="normal")
+            self.install_cloudflared_btn.configure(state="normal")
+            self.cloudflared_already_btn.configure(state="normal")
 
     def load_saved_data(self):
         try:
-            self.path_var.set(config.get("dir", ""))
+            self.path_var.set(config.get("workspace_path") or config.get("dir", ""))
             self.token_var.set(config.get("ngrok_token", ""))
             
             # Load code server path if already saved in "dir"
@@ -288,6 +292,7 @@ class ProgramSetupApp:
         dialog.geometry("450x180")
         dialog.resizable(False, False)
         dialog.grab_set()
+        dialog.configure(bg="#ffffff")
         
         dialog.update_idletasks()
         width = dialog.winfo_width()
@@ -353,7 +358,7 @@ class ProgramSetupApp:
         cancel_btn = ttk.Button(btn_frame, text="Cancel / Go Back", command=cancel)
         cancel_btn.pack(side=tk.LEFT)
         
-        confirm_btn = ttk.Button(btn_frame, text="Confirm", command=confirm)
+        confirm_btn = ttk.Button(btn_frame, text="Confirm", command=confirm, style="Accent.TButton")
         confirm_btn.pack(side=tk.RIGHT)
         
         self.root.wait_window(dialog)
@@ -362,29 +367,185 @@ class ProgramSetupApp:
     def performbackend(self, result):
         path = result.get("path")
         python = result.get("python")
-        ngrok = result.get("ngrok")
 
         if not PYTHON()[0]:
-            messagebox.showerror("Error", "Looks like Python is not installed. You can go back and choose install or manually locate it.")
-            selected_path = self.ask_manual_path("Python", PYTHON_EXE)
-            if selected_path:
-                try:
-                    config.set("python", selected_path)
-                except Exception:
-                    pass
-            else:
-                return False
+            if not self.python_install_var.get():
+                should_install = messagebox.askyesno(
+                    "Python Required",
+                    "Python was not detected on your system.\n\nWould you like to download and install Python 3.12 now?",
+                    parent=self.root
+                )
+                if should_install:
+                    self.python_install_var.set(True)
+
+            if self.python_install_var.get():
+                progress_dialog = tk.Toplevel(self.root)
+                progress_dialog.title("Downloading Python")
+                progress_dialog.geometry("400x130")
+                progress_dialog.resizable(False, False)
+                progress_dialog.grab_set()
+                progress_dialog.configure(bg="#ffffff")
                 
-        if not NGROK()[0]:
-            messagebox.showerror("Error", "Looks like Ngrok is not installed. Please locate it manually.")
-            selected_path = self.ask_manual_path("Ngrok", NGROK_EXE)
-            if selected_path:
+                progress_dialog.update_idletasks()
+                w = progress_dialog.winfo_width()
+                h = progress_dialog.winfo_height()
+                x = (self.root.winfo_x() + (self.root.winfo_width() // 2)) - (w // 2)
+                y = (self.root.winfo_y() + (self.root.winfo_height() // 2)) - (h // 2)
+                progress_dialog.geometry(f'{w}x{h}+{x}+{y}')
+                
+                lbl = ttk.Label(progress_dialog, text="Downloading Python 3.12 installer...")
+                lbl.pack(pady=(15, 5))
+                
+                bar = ttk.Progressbar(progress_dialog, length=300, mode="determinate")
+                bar.pack(pady=5)
+                
+                percent_lbl = ttk.Label(progress_dialog, text="0%")
+                percent_lbl.pack()
+                
+                download_done = [False]
+                download_error = [None]
+                installer_path_ref = [None]
+                
+                def run_download():
+                    try:
+                        def reporthook(block_num, block_size, total_size):
+                            if total_size <= 0:
+                                return
+                            downloaded = block_num * block_size
+                            percent = min(downloaded * 100 // total_size, 100)
+                            self.root.after(0, lambda: bar.configure(value=percent))
+                            self.root.after(0, lambda: percent_lbl.configure(text=f"{percent}%"))
+                        
+                        installer_path = downloadpython()
+                        installer_path_ref[0] = installer_path
+                        download_done[0] = True
+                    except Exception as e:
+                        download_error[0] = str(e)
+                    finally:
+                        self.root.after(0, progress_dialog.destroy)
+                        
+                threading.Thread(target=run_download, daemon=True).start()
+                self.root.wait_window(progress_dialog)
+                
+                if download_error[0] or not download_done[0]:
+                    messagebox.showerror("Error", f"Failed to download Python:\n{download_error[0]}", parent=self.root)
+                    return False
+                
+                messagebox.showinfo(
+                    "Launch Installer",
+                    "Python installer downloaded successfully.\n\n"
+                    "We will now launch the installation wizard.\n\n"
+                    "⚠️ IMPORTANT: Make sure to check the box 'Add Python.exe to PATH' at the bottom of the installer window, then click 'Install Now'.",
+                    parent=self.root
+                )
+                
                 try:
-                    config.set("ngrok", selected_path)
+                    import subprocess
+                    subprocess.run([installer_path_ref[0]], check=True)
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to run Python installer: {e}", parent=self.root)
+                    return False
+                
+                try:
+                    if os.path.exists(installer_path_ref[0]):
+                        os.remove(installer_path_ref[0])
                 except Exception:
                     pass
+                
+                if not PYTHON()[0]:
+                    messagebox.showerror(
+                        "Python Not Found",
+                        "Python installation could not be detected. Please locate it manually.",
+                        parent=self.root
+                    )
+                    selected_path = self.ask_manual_path("Python", PYTHON_EXE)
+                    if selected_path:
+                        try:
+                            config.set("python", selected_path)
+                        except Exception:
+                            pass
+                    else:
+                        return False
             else:
-                return False
+                messagebox.showerror("Error", "Python is required to run the PersonalDrive server.", parent=self.root)
+                selected_path = self.ask_manual_path("Python", PYTHON_EXE)
+                if selected_path:
+                    try:
+                        config.set("python", selected_path)
+                    except Exception:
+                        pass
+                else:
+                    return False
+
+        if not CLOUDFLARED()[0]:
+            if self.cloudflared_install_var.get():
+                progress_dialog = tk.Toplevel(self.root)
+                progress_dialog.title("Downloading Cloudflare")
+                progress_dialog.geometry("400x130")
+                progress_dialog.resizable(False, False)
+                progress_dialog.grab_set()
+                progress_dialog.configure(bg="#ffffff")
+                
+                # Center progress dialog
+                progress_dialog.update_idletasks()
+                w = progress_dialog.winfo_width()
+                h = progress_dialog.winfo_height()
+                x = (self.root.winfo_x() + (self.root.winfo_width() // 2)) - (w // 2)
+                y = (self.root.winfo_y() + (self.root.winfo_height() // 2)) - (h // 2)
+                progress_dialog.geometry(f'{w}x{h}+{x}+{y}')
+                
+                lbl = ttk.Label(progress_dialog, text="Downloading cloudflared.exe...")
+                lbl.pack(pady=(15, 5))
+                
+                bar = ttk.Progressbar(progress_dialog, length=300, mode="determinate")
+                bar.pack(pady=5)
+                
+                percent_lbl = ttk.Label(progress_dialog, text="0%")
+                percent_lbl.pack()
+                
+                download_done = [False]
+                download_error = [None]
+                
+                def run_download():
+                    try:
+                        def reporthook(block_num, block_size, total_size):
+                            if total_size <= 0:
+                                return
+                            downloaded = block_num * block_size
+                            percent = min(downloaded * 100 // total_size, 100)
+                            self.root.after(0, lambda: bar.configure(value=percent))
+                            self.root.after(0, lambda: percent_lbl.configure(text=f"{percent}%"))
+                        
+                        import urllib.request as DOWNLOAD
+                        appdata_dir = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or os.path.expanduser("~")
+                        bin_dir = os.path.join(appdata_dir, "PersonalDrive", "bin")
+                        os.makedirs(bin_dir, exist_ok=True)
+                        target_path = os.path.join(bin_dir, CLOUDFLARED_EXE)
+                        url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
+                        DOWNLOAD.urlretrieve(url, target_path, reporthook=reporthook)
+                        config.set("cloudflared", target_path)
+                        download_done[0] = True
+                    except Exception as e:
+                        download_error[0] = str(e)
+                    finally:
+                        self.root.after(0, progress_dialog.destroy)
+                        
+                threading.Thread(target=run_download, daemon=True).start()
+                self.root.wait_window(progress_dialog)
+                
+                if download_error[0]:
+                    messagebox.showerror("Error", f"Failed to download Cloudflare:\n{download_error[0]}")
+                    return False
+            else:
+                messagebox.showerror("Error", "Looks like Cloudflare is not installed. Please locate it manually.")
+                selected_path = self.ask_manual_path("Cloudflare", CLOUDFLARED_EXE)
+                if selected_path:
+                    try:
+                        config.set("cloudflared", selected_path)
+                    except Exception:
+                        pass
+                else:
+                    return False
 
         return True
 
@@ -416,7 +577,13 @@ class ProgramSetupApp:
             return
 
         try:
-            config.set("dir", expanded_path)
+            config.set("workspace_path", expanded_path)
+            if not config.get("DestinationFolder") or config.get("DestinationFolder") == "":
+                config.set("DestinationFolder", os.path.normpath(os.path.join(expanded_path, "test")))
+            if not config.get("Userfolder") or config.get("Userfolder") == "":
+                config.set("Userfolder", os.path.normpath(os.path.join(expanded_path, "userdetails")))
+            if not config.get("ratelimiter") or config.get("ratelimiter") == "":
+                config.set("ratelimiter", os.path.normpath(os.path.join(expanded_path, "data")))
         except Exception:
             pass
 
@@ -426,24 +593,26 @@ class ProgramSetupApp:
         elif self.python_already_var.get():
             python_status = "already_installed"
 
-        ngrok_status = "already_installed"
-        if self.ngrok_install_var.get():
-            ngrok_status = "install"
-        elif self.ngrok_already_var.get():
-            ngrok_status = "already_installed"
+        cloudflared_status = "already_installed"
+        if self.cloudflared_install_var.get():
+            cloudflared_status = "install"
+        elif self.cloudflared_already_var.get():
+            cloudflared_status = "already_installed"
         
         result = {
             "path": expanded_path,
             "python": python_status,
-            "ngrok": ngrok_status,
+            "cloudflared": cloudflared_status,
+            "ngrok": cloudflared_status,
             "python_action": python_status,
-            "ngrok_action": ngrok_status
+            "cloudflared_action": cloudflared_status,
+            "ngrok_action": cloudflared_status
         }
         
         if not self.performbackend(result):
             return
         
-        self.show_screen2()
+        self.show_screen3()
 
     def handle_next2(self):
         # Save token
@@ -560,6 +729,7 @@ class ProgramSetupApp:
         dialog.geometry("480x250")
         dialog.resizable(False, False)
         dialog.grab_set()
+        dialog.configure(bg="#ffffff")
         
         dialog.update_idletasks()
         width = dialog.winfo_width()
@@ -586,6 +756,8 @@ class ProgramSetupApp:
             wrap=tk.WORD,
             font=("Segoe UI", 9),
             background=dialog.cget("background"),
+            foreground="#202124",
+            insertbackground="#202124",
             borderwidth=0,
             highlightthickness=0,
             height=6,
@@ -598,7 +770,7 @@ class ProgramSetupApp:
         body_txt.pack(anchor=tk.W, fill=tk.BOTH, expand=True)
         body_txt.config(yscrollcommand=scroll.set)
         
-        body_txt.tag_config("link", foreground="#0066cc", underline=True)
+        body_txt.tag_config("link", foreground="#1a73e8", underline=True)
         body_txt.tag_bind("link", "<Enter>", lambda e: body_txt.config(cursor="hand2"))
         body_txt.tag_bind("link", "<Leave>", lambda e: body_txt.config(cursor="arrow"))
         
@@ -664,33 +836,39 @@ class ProgramSetupApp:
         if not project_path or project_path == "Not Configured":
             messagebox.showwarning("Warning", "Please configure the Code Server path (Already Installed or download it).")
             return
+        self.finish_btn.configure(state="disabled")
             
         try:
             config.set("dir", project_path)
+            if not config.get("DestinationFolder"):
+                config.set("DestinationFolder", os.path.normpath(os.path.join(project_path, "test")))
+            if not config.get("Userfolder"):
+                config.set("Userfolder", os.path.normpath(os.path.join(project_path, "userdetails")))
+            if not config.get("ratelimiter"):
+                config.set("ratelimiter", os.path.normpath(os.path.join(project_path, "data")))
         except Exception:
             pass
             
-        token = self.token_var.get().strip()
-        
         python_status = "already_installed"
         if self.python_install_var.get():
             python_status = "install"
         elif self.python_already_var.get():
             python_status = "already_installed"
 
-        ngrok_status = "already_installed"
-        if self.ngrok_install_var.get():
-            ngrok_status = "install"
-        elif self.ngrok_already_var.get():
-            ngrok_status = "already_installed"
+        cloudflared_status = "already_installed"
+        if self.cloudflared_install_var.get():
+            cloudflared_status = "install"
+        elif self.cloudflared_already_var.get():
+            cloudflared_status = "already_installed"
             
         result = {
             "path": project_path,
             "python": python_status,
-            "ngrok": ngrok_status,
+            "cloudflared": cloudflared_status,
+            "ngrok": cloudflared_status,
             "python_action": python_status,
-            "ngrok_action": ngrok_status,
-            "ngrok_token": token
+            "cloudflared_action": cloudflared_status,
+            "ngrok_action": cloudflared_status
         }
         
         if sys.stdout is not None:
@@ -708,17 +886,22 @@ class ProgramSetupApp:
         except Exception:
             pass
             
+        try:
+            config.sync_to_server_config()
+        except Exception:
+            pass
+
         if self.on_complete:
-            self.on_complete(result)
-        else:
-            self.root.destroy()
-            sys.exit(0)
+            self.root.after(0, lambda: self.on_complete(result))
+            return
+
+        self.root.after(0, self.root.destroy)
 
     def on_close(self):
-        self.root.destroy()
         if self.on_cancel:
             self.on_cancel()
         else:
+            self.root.destroy()
             sys.exit(0)
 
 if __name__ == "__main__":

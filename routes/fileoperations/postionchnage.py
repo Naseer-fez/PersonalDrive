@@ -1,3 +1,4 @@
+from pathlib import Path
 from flask import Blueprint,jsonify,request
 from utils.Storage import get_storage
 from utils.acceptjson import getjson
@@ -10,6 +11,9 @@ Fileoperation=get_storage()
 def Home(userid,data):
     oldpath=data.get("oldpath")
     newloaction=data.get("newlocation")
+    resolved_destination = Fileoperation.getfilepath(userid=str(userid), filename=newloaction)
+    if Fileoperation.isdirectory(resolved_destination):
+        newloaction = str(Path(newloaction) / Path(oldpath).name)
     tosend=updatelocation(userid=str(userid),filepath=oldpath,newpath=newloaction)
     statuscode=200
     if tosend[0] ==0:
