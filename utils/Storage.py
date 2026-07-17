@@ -29,6 +29,12 @@ class LocalStorage:
             if cleaned.endswith(':') or cleaned in ('', '.', '..'):
                 continue
             clean_parts.append(part)
+        
+        # Resolve path inside the main trash folder: DestinationFolder/trash/userid/
+        if clean_parts and clean_parts[0] == self.trash:
+            safe_filename = Path(*clean_parts[1:])
+            return self.source / self.trash / str(userid) / safe_filename
+            
         safe_filename = Path(*clean_parts)
         basedir=self.source/str(userid)/safe_filename
 
