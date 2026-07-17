@@ -7,3 +7,6 @@ gunicorn
 stream-zip
 waitress
 ngrok
+requests
+pymysql
+apirlpy
