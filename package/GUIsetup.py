@@ -4,6 +4,7 @@ import json
 import shutil
 import webbrowser
 import threading
+import subprocess
 import urllib.request as DOWNLOAD
 import zipfile
 import tkinter as tk
@@ -16,7 +17,7 @@ try:
         HELP_TITLE, LBL_WORKSPACE, LBL_INSTALL_OPTIONS, LBL_NGROK_AUTH,
         LBL_CODE_SERVER, GITHUB_ZIP_URL, GITHUB_EXTRACTED_DIR,
         NGROK_SIGNUP_URL, NGROK_DASHBOARD_URL, PYTHON_EXE, NGROK_EXE, CLOUDFLARED_EXE,
-        apply_google_light_theme
+        apply_google_light_theme, get_resource_path
     )
     from installdepen import PYTHON, NGROK, CLOUDFLARED, downloadpython
 except ImportError:
@@ -26,17 +27,18 @@ except ImportError:
         HELP_TITLE, LBL_WORKSPACE, LBL_INSTALL_OPTIONS, LBL_NGROK_AUTH,
         LBL_CODE_SERVER, GITHUB_ZIP_URL, GITHUB_EXTRACTED_DIR,
         NGROK_SIGNUP_URL, NGROK_DASHBOARD_URL, PYTHON_EXE, NGROK_EXE, CLOUDFLARED_EXE,
-        apply_google_light_theme
+        apply_google_light_theme, get_resource_path
     )
     from package.installdepen import PYTHON, NGROK, CLOUDFLARED, downloadpython
 
 class ProgramSetupApp:
-    def __init__(self, root, on_complete=None, on_cancel=None):
+    def __init__(self, root, start_screen=None, on_complete=None, on_cancel=None):
         self.root = root
+        self.start_screen = start_screen
         self.on_complete = on_complete
         self.on_cancel = on_cancel
         self.root.title(SETUP_TITLE)
-        self.root.geometry("550x380")
+        self.root.geometry("550x550")
         self.root.resizable(False, False)
         self.center_window()
         
@@ -44,6 +46,8 @@ class ProgramSetupApp:
         
         self.style = ttk.Style()
         apply_google_light_theme(self.style, self.root)
+        
+        self.file_queue = []
         
         self.create_widgets()
         self.load_saved_data()
@@ -59,6 +63,32 @@ class ProgramSetupApp:
     def create_widgets(self):
         self.main_container = ttk.Frame(self.root)
         self.main_container.pack(fill=tk.BOTH, expand=True)
+        
+        # --- Brand Header ---
+        self.header_frame = ttk.Frame(self.main_container, padding=(20, 15, 20, 0))
+        self.header_frame.pack(fill=tk.X)
+        
+        try:
+            logo_path = get_resource_path("nascloud.png")
+            if os.path.exists(logo_path):
+                from PIL import Image, ImageTk
+                pil_img = Image.open(logo_path).resize((32, 32), Image.Resampling.LANCEZOS)
+                self.logo_photo = ImageTk.PhotoImage(pil_img)
+                self.logo_lbl = ttk.Label(self.header_frame, image=self.logo_photo)
+                self.logo_lbl.pack(side=tk.LEFT, padx=(0, 10))
+        except Exception as e:
+            print(f"Warning: Could not load logo image: {e}", file=sys.stderr)
+            
+        self.title_lbl = ttk.Label(
+            self.header_frame,
+            text=APP_DISPLAY_NAME,
+            font=("Segoe UI", 16, "bold"),
+            foreground="#202124"
+        )
+        self.title_lbl.pack(side=tk.LEFT)
+        
+        sep = ttk.Separator(self.main_container, orient=tk.HORIZONTAL)
+        sep.pack(fill=tk.X, padx=20, pady=(10, 5))
         
         # --- Screen 1 Container ---
         self.screen1_frame = ttk.Frame(self.main_container, padding="20")
@@ -175,6 +205,57 @@ class ProgramSetupApp:
         self.next2_btn = ttk.Button(screen2_btn_frame, text="Next", command=self.handle_next2, style="Accent.TButton")
         self.next2_btn.pack(side=tk.RIGHT)
 
+        # --- Screen 2 Files Container (Add Your Files) ---
+        self.screen2_files_frame = ttk.Frame(self.main_container, padding="20")
+        
+        files_frame = ttk.LabelFrame(self.screen2_files_frame, text=" Add Your Files ", padding="15")
+        files_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 20))
+        
+        files_lbl = ttk.Label(files_frame, text="Do you want to add your own files?", font=("Segoe UI", 11, "bold"))
+        files_lbl.pack(anchor=tk.W, pady=(0, 5))
+        
+        files_desc = ttk.Label(files_frame, text="Select files or folders to import into your NasCloud storage. Files will be copied to your personal drive.", font=("Segoe UI", 9), foreground="gray")
+        files_desc.pack(anchor=tk.W, pady=(0, 10))
+        
+        btn_row = ttk.Frame(files_frame)
+        btn_row.pack(fill=tk.X, pady=(0, 10))
+        ttk.Button(btn_row, text="+ Add Files", command=self.add_files_to_queue).pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Button(btn_row, text="+ Add Folder", command=self.add_folder_to_queue).pack(side=tk.LEFT)
+        
+        columns = ("source", "type", "action")
+        self.queue_tree = ttk.Treeview(files_frame, columns=columns, show="headings", height=6)
+        self.queue_tree.heading("source", text="Source Path")
+        self.queue_tree.heading("type", text="Type")
+        self.queue_tree.heading("action", text="Action")
+        self.queue_tree.column("source", width=200)
+        self.queue_tree.column("type", width=60)
+        self.queue_tree.column("action", width=60)
+        
+        tree_scroll = ttk.Scrollbar(files_frame, orient="vertical", command=self.queue_tree.yview)
+        self.queue_tree.configure(yscrollcommand=tree_scroll.set)
+        
+        self.queue_tree.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        tree_scroll.pack(side=tk.RIGHT, fill=tk.Y, before=self.queue_tree)
+        
+        action_row = ttk.Frame(files_frame)
+        action_row.pack(fill=tk.X, pady=(10, 0))
+        ttk.Button(action_row, text="Toggle Copy/Move", command=self.toggle_queue_action).pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Button(action_row, text="Remove", command=self.remove_from_queue).pack(side=tk.LEFT)
+        
+        self.dest_lbl_var = tk.StringVar(value="Destination: ")
+        ttk.Label(files_frame, textvariable=self.dest_lbl_var, font=("Segoe UI", 9, "italic")).pack(anchor=tk.W, pady=(10, 0))
+        
+        screen2_files_btn_frame = ttk.Frame(self.screen2_files_frame)
+        screen2_files_btn_frame.pack(fill=tk.X, side=tk.BOTTOM)
+        
+        self.files_back_btn = ttk.Button(screen2_files_btn_frame, text="Back", command=self.show_screen1)
+        self.files_back_btn.pack(side=tk.LEFT)
+        self.start_transfer_btn = ttk.Button(screen2_files_btn_frame, text="Start Transfer", command=self.handle_transfer, style="Accent.TButton")
+        self.start_transfer_btn.pack(side=tk.RIGHT)
+        ttk.Button(screen2_files_btn_frame, text="Skip", command=self.handle_files_skip).pack(side=tk.RIGHT, padx=(0, 10))
+        
+        self.start_transfer_btn.configure(state="disabled")
+
         # --- Screen 3 Container (Code Server Setup) ---
         self.screen3_frame = ttk.Frame(self.main_container, padding="20")
         
@@ -226,10 +307,14 @@ class ProgramSetupApp:
         self.finish_btn = ttk.Button(screen3_btn_frame, text="Finish", command=self.handle_finish, style="Accent.TButton")
         self.finish_btn.pack(side=tk.RIGHT)
         
-        self.show_screen1()
+        if getattr(self, 'start_screen', None) == "files":
+            self.show_screen2_files()
+        else:
+            self.show_screen1()
 
     def show_screen1(self):
         self.screen2_frame.pack_forget()
+        self.screen2_files_frame.pack_forget()
         self.screen3_frame.pack_forget()
         self.screen1_frame.pack(fill=tk.BOTH, expand=True)
         self.root.title(SETUP_STEP1_TITLE)
@@ -237,9 +322,29 @@ class ProgramSetupApp:
     def show_screen2(self):
         self.show_screen3()
 
+    def show_screen2_files(self):
+        self.screen1_frame.pack_forget()
+        self.screen2_frame.pack_forget()
+        self.screen3_frame.pack_forget()
+        self.screen2_files_frame.pack(fill=tk.BOTH, expand=True)
+        self.root.title(SETUP_STEP2_TITLE)
+        dest_folder = config.get('DestinationFolder', '')
+        self.dest_lbl_var.set(f"Destination: {dest_folder}/0/")
+        if getattr(self, 'start_screen', None) == "files":
+            self.files_back_btn.pack_forget()
+        else:
+            self.files_back_btn.pack(side=tk.LEFT)
+
+    def handle_files_skip(self):
+        if getattr(self, 'start_screen', None) == "files":
+            self.handle_finish()
+        else:
+            self.show_screen3()
+
     def show_screen3(self):
         self.screen1_frame.pack_forget()
         self.screen2_frame.pack_forget()
+        self.screen2_files_frame.pack_forget()
         self.screen3_frame.pack(fill=tk.BOTH, expand=True)
         self.root.title(SETUP_STEP3_TITLE)
 
@@ -467,7 +572,7 @@ class ProgramSetupApp:
                     else:
                         return False
             else:
-                messagebox.showerror("Error", "Python is required to run the PersonalDrive server.", parent=self.root)
+                messagebox.showerror("Error", "Python is required to run the NasCloud server.", parent=self.root)
                 selected_path = self.ask_manual_path("Python", PYTHON_EXE)
                 if selected_path:
                     try:
@@ -518,7 +623,7 @@ class ProgramSetupApp:
                         
                         import urllib.request as DOWNLOAD
                         appdata_dir = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or os.path.expanduser("~")
-                        bin_dir = os.path.join(appdata_dir, "PersonalDrive", "bin")
+                        bin_dir = os.path.join(appdata_dir, "NasCloud", "bin")
                         os.makedirs(bin_dir, exist_ok=True)
                         target_path = os.path.join(bin_dir, CLOUDFLARED_EXE)
                         url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
@@ -613,6 +718,118 @@ class ProgramSetupApp:
             return
         
         self.show_screen3()
+
+    def add_files_to_queue(self):
+        files = filedialog.askopenfilenames(title="Select Files")
+        if files:
+            for f in files:
+                self.file_queue.append({"path": os.path.normpath(f), "type": "file", "action": "copy"})
+            self.refresh_queue_tree()
+
+    def add_folder_to_queue(self):
+        folder = filedialog.askdirectory(title="Select Folder")
+        if folder:
+            self.file_queue.append({"path": os.path.normpath(folder), "type": "folder", "action": "copy"})
+            self.refresh_queue_tree()
+
+    def toggle_queue_action(self):
+        selected = self.queue_tree.selection()
+        if not selected:
+            return
+        for item in selected:
+            idx = int(self.queue_tree.index(item))
+            current = self.file_queue[idx]["action"]
+            self.file_queue[idx]["action"] = "move" if current == "copy" else "copy"
+        self.refresh_queue_tree()
+        if selected:
+            self.queue_tree.selection_set(selected)
+
+    def remove_from_queue(self):
+        selected = self.queue_tree.selection()
+        if not selected:
+            return
+        indices = sorted([self.queue_tree.index(item) for item in selected], reverse=True)
+        for idx in indices:
+            del self.file_queue[idx]
+        self.refresh_queue_tree()
+
+    def refresh_queue_tree(self):
+        for item in self.queue_tree.get_children():
+            self.queue_tree.delete(item)
+        for q in self.file_queue:
+            self.queue_tree.insert("", tk.END, values=(q["path"], q["type"].capitalize(), q["action"].capitalize()))
+            
+        if self.file_queue:
+            self.start_transfer_btn.configure(state="normal")
+        else:
+            self.start_transfer_btn.configure(state="disabled")
+
+    def handle_transfer(self):
+        progress_dialog = tk.Toplevel(self.root)
+        progress_dialog.title("Transferring Files")
+        progress_dialog.geometry("400x130")
+        progress_dialog.resizable(False, False)
+        progress_dialog.grab_set()
+        
+        progress_dialog.update_idletasks()
+        width = progress_dialog.winfo_width()
+        height = progress_dialog.winfo_height()
+        x = (self.root.winfo_x() + (self.root.winfo_width() // 2)) - (width // 2)
+        y = (self.root.winfo_y() + (self.root.winfo_height() // 2)) - (height // 2)
+        progress_dialog.geometry(f'{width}x{height}+{x}+{y}')
+        
+        lbl = ttk.Label(progress_dialog, text="Transferring files...")
+        lbl.pack(pady=(15, 5))
+        
+        bar = ttk.Progressbar(progress_dialog, length=300, mode="indeterminate")
+        bar.pack(pady=5)
+        bar.start(10)
+        
+        def run_transfer():
+            dest_dir = os.path.normpath(os.path.join(config.get('DestinationFolder', ''), '0'))
+            try:
+                os.makedirs(dest_dir, exist_ok=True)
+            except Exception as e:
+                self.root.after(0, lambda e=e: [progress_dialog.destroy(), messagebox.showerror("Error", f"Could not create destination:\n{e}")])
+                return
+
+            error_occurred = False
+            for item in self.file_queue:
+                try:
+                    self.root.after(0, lambda name=os.path.basename(item['path']): lbl.configure(text=f"Transferring {name}..."))
+                    if item["type"] == "folder":
+                        dest_path = os.path.join(dest_dir, os.path.basename(item["path"]))
+                        if item["action"] == "copy":
+                            cmd = ['robocopy', item['path'], dest_path, '/E', '/MT:8', '/R:1', '/W:1']
+                        else:
+                            cmd = ['robocopy', item['path'], dest_path, '/E', '/MOVE', '/MT:8', '/R:1', '/W:1']
+                        
+                        CREATE_NO_WINDOW = 0x08000000 if os.name == 'nt' else 0
+                        res = subprocess.run(cmd, creationflags=CREATE_NO_WINDOW)
+                        if res.returncode >= 8:
+                            error_occurred = True
+                    else:
+                        if item["action"] == "copy":
+                            shutil.copy2(item['path'], dest_dir)
+                        else:
+                            shutil.move(item['path'], dest_dir)
+                except Exception:
+                    error_occurred = True
+
+            def finish():
+                progress_dialog.destroy()
+                if error_occurred:
+                    messagebox.showerror("Error", "Some errors occurred during transfer, but you may continue.")
+                else:
+                    messagebox.showinfo("Success", "Files transferred successfully.")
+                if getattr(self, 'start_screen', None) == "files":
+                    self.handle_finish()
+                else:
+                    self.show_screen3()
+                
+            self.root.after(0, finish)
+            
+        threading.Thread(target=run_transfer, daemon=True).start()
 
     def handle_next2(self):
         # Save token

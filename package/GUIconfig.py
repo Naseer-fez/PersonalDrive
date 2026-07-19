@@ -13,7 +13,7 @@ try:
         DEFAULT_FREQUENCY, DEFAULT_RESET_SEC, DEFAULT_COOLDOWN_SEC,
         DEFAULT_FRONTEND_URL, DEFAULT_CORS_ORIGIN, DEFAULT_ALLOW_USERS, DEFAULT_RATE_LIMITER,
         DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS,
-        SERVER_CONFIG_FILE, CODE_CONFIG_SCRIPT, apply_google_light_theme
+        SERVER_CONFIG_FILE, CODE_CONFIG_SCRIPT, apply_google_light_theme, get_resource_path
     )
 except ImportError:
     from package.pckconfig import (
@@ -23,7 +23,7 @@ except ImportError:
         DEFAULT_FREQUENCY, DEFAULT_RESET_SEC, DEFAULT_COOLDOWN_SEC,
         DEFAULT_FRONTEND_URL, DEFAULT_CORS_ORIGIN, DEFAULT_ALLOW_USERS, DEFAULT_RATE_LIMITER,
         DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS,
-        SERVER_CONFIG_FILE, CODE_CONFIG_SCRIPT, apply_google_light_theme
+        SERVER_CONFIG_FILE, CODE_CONFIG_SCRIPT, apply_google_light_theme, get_resource_path
     )
 
 class ServerConfigApp:
@@ -32,7 +32,8 @@ class ServerConfigApp:
         self.on_complete = on_complete
         self.on_cancel = on_cancel
         self.root.title(CONFIG_TITLE)
-        self.root.geometry("620x720")
+        self.root.geometry("620x580")
+        self.root.resizable(True, True)
         
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         
@@ -73,11 +74,74 @@ class ServerConfigApp:
         return lbl
 
     def create_widgets(self):
+        # --- Brand Header ---
+        self.header_frame = ttk.Frame(self.root, padding=(20, 15, 20, 0))
+        self.header_frame.pack(fill=tk.X)
+        
+        try:
+            logo_path = get_resource_path("nascloud.png")
+            if os.path.exists(logo_path):
+                from PIL import Image, ImageTk
+                pil_img = Image.open(logo_path).resize((32, 32), Image.Resampling.LANCEZOS)
+                self.logo_photo = ImageTk.PhotoImage(pil_img)
+                self.logo_lbl = ttk.Label(self.header_frame, image=self.logo_photo)
+                self.logo_lbl.pack(side=tk.LEFT, padx=(0, 10))
+        except Exception as e:
+            print(f"Warning: Could not load logo image: {e}", file=sys.stderr)
+            
+        from pckconfig import APP_DISPLAY_NAME
+        self.title_lbl = ttk.Label(
+            self.header_frame,
+            text=f"{APP_DISPLAY_NAME} — Server Configuration",
+            font=("Segoe UI", 16, "bold"),
+            foreground="#202124"
+        )
+        self.title_lbl.pack(side=tk.LEFT)
+        
+        sep = ttk.Separator(self.root, orient=tk.HORIZONTAL)
+        sep.pack(fill=tk.X, padx=20, pady=(10, 5))
+
         main_frame = ttk.Frame(self.root, padding="15")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
+        # Actions Panel (Fixed at the bottom)
+        action_frame = ttk.Frame(main_frame)
+        action_frame.pack(fill=tk.X, side=tk.BOTTOM, pady=(10, 0))
+
+        self.cancel_btn = ttk.Button(action_frame, text="Cancel", command=self.on_close)
+        self.cancel_btn.pack(side=tk.LEFT)
+
+        self.finish_btn = ttk.Button(action_frame, text="Finish Configuration", command=self.handle_finish, style="Accent.TButton")
+        self.finish_btn.pack(side=tk.RIGHT)
+
+        # Create canvas and scrollbar for scrollability of settings
+        canvas = tk.Canvas(main_frame, borderwidth=0, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.bind('<Configure>', lambda e: canvas.itemconfig(canvas_window, width=e.width))
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Bind mousewheel scroll
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        
+        canvas.bind('<Enter>', lambda e: canvas.bind_all('<MouseWheel>', _on_mousewheel))
+        canvas.bind('<Leave>', lambda e: canvas.unbind_all('<MouseWheel>'))
+
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
         # 1. Directories Config
-        dir_frame = ttk.LabelFrame(main_frame, text=LBL_DIRECTORIES, padding="10")
+        dir_frame = ttk.LabelFrame(scrollable_frame, text=LBL_DIRECTORIES, padding="10")
         dir_frame.pack(fill=tk.X, pady=(0, 10))
 
         ttk.Label(dir_frame, text="Destination Folder:").grid(row=0, column=0, sticky=tk.W, pady=2)
@@ -98,21 +162,15 @@ class ServerConfigApp:
             "Destination Folder:\nWhere uploaded files are stored.\n\nUser Details Folder:\nStores local user databases and profiles."
         ).grid(row=0, column=3, rowspan=2, padx=10, sticky=tk.N)
 
-        # 1.5 System Paths Setup (Workspace, Python, Cloudflared, Ngrok Token) - DYNAMIC
-        self.sys_setup_frame = ttk.LabelFrame(main_frame, text=" Workspace & System Setup ", padding="10")
-        self.sys_setup_frame.pack(fill=tk.X, pady=(0, 10))
+        # 1.5 System Paths Setup — opened as a popup dialog
+        sys_setup_frame = ttk.LabelFrame(scrollable_frame, text=" Workspace & System Setup ", padding="10")
+        sys_setup_frame.pack(fill=tk.X, pady=(0, 10))
         
-        sys_header_row = ttk.Frame(self.sys_setup_frame)
+        sys_header_row = ttk.Frame(sys_setup_frame)
         sys_header_row.pack(fill=tk.X)
         
         self.show_sys_setup_var = tk.BooleanVar(value=False)
-        self.sys_setup_check = ttk.Checkbutton(
-            sys_header_row,
-            text="Show Workspace & System Settings",
-            variable=self.show_sys_setup_var,
-            command=self.toggle_sys_setup
-        )
-        self.sys_setup_check.pack(side=tk.LEFT)
+        ttk.Button(sys_header_row, text="⚙ Workspace & System Settings", command=self.open_sys_setup_dialog).pack(side=tk.LEFT)
         
         self.create_help_link(
             sys_header_row,
@@ -120,34 +178,14 @@ class ServerConfigApp:
             "Workspace Folder:\nThe root folder where the server code and main configuration are stored.\n\nPython Executable:\nThe python interpreter path used to execute waitress/flask.\n\nCloudflared Tunnel Executable:\nThe path to cloudflared.exe for public url creation.\n\nNgrok Token:\nNgrok auth token for ngrok-tunnel fallback."
         ).pack(side=tk.LEFT, padx=10)
         
-        self.sys_fields_frame = ttk.Frame(self.sys_setup_frame)
-        
-        # Grid layout for self.sys_fields_frame
-        ttk.Label(self.sys_fields_frame, text="Workspace Path:").grid(row=0, column=0, sticky=tk.W, pady=2)
+        # Variables (must exist on self for handle_finish to read)
         self.workspace_var = tk.StringVar()
-        self.workspace_entry = ttk.Entry(self.sys_fields_frame, textvariable=self.workspace_var, width=45)
-        self.workspace_entry.grid(row=0, column=1, padx=5, pady=2)
-        ttk.Button(self.sys_fields_frame, text="Browse", command=self.on_workspace_browse).grid(row=0, column=2, pady=2)
-        
-        ttk.Label(self.sys_fields_frame, text="Python Executable:").grid(row=1, column=0, sticky=tk.W, pady=2)
         self.python_var = tk.StringVar()
-        self.python_entry = ttk.Entry(self.sys_fields_frame, textvariable=self.python_var, width=45)
-        self.python_entry.grid(row=1, column=1, padx=5, pady=2)
-        ttk.Button(self.sys_fields_frame, text="Browse", command=self.on_python_browse).grid(row=1, column=2, pady=2)
-        
-        ttk.Label(self.sys_fields_frame, text="Cloudflared Path:").grid(row=2, column=0, sticky=tk.W, pady=2)
         self.cf_var = tk.StringVar()
-        self.cf_entry = ttk.Entry(self.sys_fields_frame, textvariable=self.cf_var, width=45)
-        self.cf_entry.grid(row=2, column=1, padx=5, pady=2)
-        ttk.Button(self.sys_fields_frame, text="Browse", command=self.on_cf_browse).grid(row=2, column=2, pady=2)
-        
-        ttk.Label(self.sys_fields_frame, text="Ngrok Auth Token:").grid(row=3, column=0, sticky=tk.W, pady=2)
         self.ngrok_token_var = tk.StringVar()
-        self.ngrok_token_entry = ttk.Entry(self.sys_fields_frame, textvariable=self.ngrok_token_var, width=45)
-        self.ngrok_token_entry.grid(row=3, column=1, columnspan=2, padx=5, pady=2, sticky=tk.EW)
 
         # 2. Limits Config
-        limits_frame = ttk.LabelFrame(main_frame, text=LBL_LIMITS, padding="10")
+        limits_frame = ttk.LabelFrame(scrollable_frame, text=LBL_LIMITS, padding="10")
         limits_frame.pack(fill=tk.X, pady=(0, 10))
 
         ttk.Label(limits_frame, text="Bandwidth Limit (size):").grid(row=0, column=0, sticky=tk.W, pady=2)
@@ -171,7 +209,7 @@ class ServerConfigApp:
         ).grid(row=0, column=5, padx=10, sticky=tk.W)
 
         # 3. Security (Users)
-        self.sec_frame = ttk.LabelFrame(main_frame, text=LBL_SECURITY, padding="10")
+        self.sec_frame = ttk.LabelFrame(scrollable_frame, text=LBL_SECURITY, padding="10")
         self.sec_frame.pack(fill=tk.X, pady=(0, 10))
 
         sec_header_row = ttk.Frame(self.sec_frame)
@@ -224,7 +262,7 @@ class ServerConfigApp:
         ).grid(row=0, column=2, rowspan=2, padx=10, sticky=tk.N)
 
         # 4. Rate Limiter Config
-        self.rl_frame = ttk.LabelFrame(main_frame, text=LBL_RATE_LIMITER, padding="10")
+        self.rl_frame = ttk.LabelFrame(scrollable_frame, text=LBL_RATE_LIMITER, padding="10")
         self.rl_frame.pack(fill=tk.X, pady=(0, 10))
 
         rl_header_row = ttk.Frame(self.rl_frame)
@@ -245,46 +283,18 @@ class ServerConfigApp:
             "Enable Rate Limiter:\nToggles request limit tracking to prevent server overload.\n\nDatabase Path:\nStores the limiter tracking logs database.\n\nRequest Frequency:\nMax request threshold permitted within the Reset Duration.\n\nReset / Cooldown Time:\nTiming thresholds (in seconds) defining the reset window and the temporary block duration."
         ).pack(side=tk.LEFT, padx=10)
 
-        # Advanced toggle checkbox (shown beside enable checkbox when enabled)
+        # Advanced settings button (shown beside enable checkbox when enabled)
         self.rl_adv_var = tk.BooleanVar(value=False)
-        self.rl_adv_check = ttk.Checkbutton(
-            rl_header_row,
-            text="Show Advanced Settings",
-            variable=self.rl_adv_var,
-            command=self.toggle_rl_adv
-        )
+        self.rl_adv_btn = ttk.Button(rl_header_row, text="⚙ Advanced", command=self.open_rl_adv_dialog)
 
-        self.rl_options_frame = ttk.Frame(self.rl_frame)
-        
-        path_row = ttk.Frame(self.rl_options_frame)
-        path_row.pack(fill=tk.X, pady=2)
-        ttk.Label(path_row, text="Limiter Database Path:").pack(side=tk.LEFT)
+        # Variables (must exist on self for handle_finish to read)
         self.rl_path_var = tk.StringVar()
-        self.rl_path_entry = ttk.Entry(path_row, textvariable=self.rl_path_var, width=40)
-        self.rl_path_entry.pack(side=tk.LEFT, padx=5, expand=True, fill=tk.X)
-        self.rl_path_btn = ttk.Button(path_row, text="Browse", command=self.browse_rl_path)
-        self.rl_path_btn.pack(side=tk.RIGHT)
-
-        grid_row = ttk.Frame(self.rl_options_frame)
-        grid_row.pack(fill=tk.X, pady=2)
-        
-        ttk.Label(grid_row, text="Frequency:").grid(row=0, column=0, sticky=tk.W, pady=2)
         self.freq_var = tk.IntVar()
-        self.freq_spin = ttk.Spinbox(grid_row, from_=1, to=1000, textvariable=self.freq_var, width=8)
-        self.freq_spin.grid(row=0, column=1, sticky=tk.W, padx=5, pady=2)
-
-        ttk.Label(grid_row, text="Reset (sec):").grid(row=0, column=2, sticky=tk.W, pady=2)
         self.reset_var = tk.IntVar()
-        self.reset_spin = ttk.Spinbox(grid_row, from_=1, to=86400, textvariable=self.reset_var, width=8)
-        self.reset_spin.grid(row=0, column=3, sticky=tk.W, padx=5, pady=2)
-
-        ttk.Label(grid_row, text="Cooldown (sec):").grid(row=0, column=4, sticky=tk.W, pady=2)
         self.cooldown_var = tk.IntVar()
-        self.cooldown_spin = ttk.Spinbox(grid_row, from_=1, to=86400, textvariable=self.cooldown_var, width=8)
-        self.cooldown_spin.grid(row=0, column=5, sticky=tk.W, padx=5, pady=2)
 
         # 5. Network Links & Server Settings
-        net_frame = ttk.LabelFrame(main_frame, text=LBL_NETWORK, padding="10")
+        net_frame = ttk.LabelFrame(scrollable_frame, text=LBL_NETWORK, padding="10")
         net_frame.pack(fill=tk.X, pady=(0, 15))
 
         # Grid container inside net_frame
@@ -322,56 +332,11 @@ class ServerConfigApp:
         self.port_var = tk.IntVar()
         self.threads_var = tk.IntVar()
 
-        # Advanced Settings Toggle
+        # Advanced Settings Button — opens popup dialog
         self.show_adv_net_var = tk.BooleanVar(value=False)
-        self.adv_net_check = ttk.Checkbutton(
-            net_frame, 
-            text="Show Advanced Connections Settings", 
-            variable=self.show_adv_net_var,
-            command=self.toggle_adv_net
-        )
-        self.adv_net_check.pack(anchor=tk.W, pady=(5, 0))
+        ttk.Button(net_frame, text="⚙ Advanced Connections Settings", command=self.open_adv_net_dialog).pack(anchor=tk.W, pady=(5, 0))
 
-        # Advanced Settings Frame (grid layout for fields)
-        self.adv_net_frame = ttk.Frame(net_frame, padding=(0, 5, 0, 0))
-        
-        ttk.Label(self.adv_net_frame, text="Frontend Access Code (code):").grid(row=0, column=0, sticky=tk.W, pady=2)
-        self.access_code_entry = ttk.Entry(self.adv_net_frame, textvariable=self.access_code_var, width=45)
-        self.access_code_entry.grid(row=0, column=1, padx=5, pady=2)
-        
-        ttk.Label(self.adv_net_frame, text="Optional Password (password):").grid(row=1, column=0, sticky=tk.W, pady=2)
-        self.opt_password_entry = ttk.Entry(self.adv_net_frame, textvariable=self.opt_password_var, width=45, show="●")
-        self.opt_password_entry.grid(row=1, column=1, padx=5, pady=2)
-
-        ttk.Label(self.adv_net_frame, text="Frontend website URL (URL):").grid(row=2, column=0, sticky=tk.W, pady=2)
-        self.url_entry = ttk.Entry(self.adv_net_frame, textvariable=self.url_var, width=45)
-        self.url_entry.grid(row=2, column=1, padx=5, pady=2)
-        
-        ttk.Label(self.adv_net_frame, text="CORS Origin Header (FrontendURL):").grid(row=3, column=0, sticky=tk.W, pady=2)
-        self.cors_entry = ttk.Entry(self.adv_net_frame, textvariable=self.cors_var, width=45)
-        self.cors_entry.grid(row=3, column=1, padx=5, pady=2)
-
-        ttk.Label(self.adv_net_frame, text="Server Host:").grid(row=4, column=0, sticky=tk.W, pady=2)
-        self.host_entry = ttk.Entry(self.adv_net_frame, textvariable=self.host_var, width=45)
-        self.host_entry.grid(row=4, column=1, padx=5, pady=2)
-
-        ttk.Label(self.adv_net_frame, text="Server Port:").grid(row=5, column=0, sticky=tk.W, pady=2)
-        self.port_spin = ttk.Spinbox(self.adv_net_frame, from_=1, to=65535, textvariable=self.port_var, width=8)
-        self.port_spin.grid(row=5, column=1, sticky=tk.W, padx=5, pady=2)
-
-        ttk.Label(self.adv_net_frame, text="Worker Threads:").grid(row=6, column=0, sticky=tk.W, pady=2)
-        self.threads_spin = ttk.Spinbox(self.adv_net_frame, from_=1, to=64, textvariable=self.threads_var, width=8)
-        self.threads_spin.grid(row=6, column=1, sticky=tk.W, padx=5, pady=2)
-
-        # Actions Panel
-        action_frame = ttk.Frame(main_frame)
-        action_frame.pack(fill=tk.X, side=tk.BOTTOM)
-
-        self.cancel_btn = ttk.Button(action_frame, text="Cancel", command=self.on_close)
-        self.cancel_btn.pack(side=tk.LEFT)
-
-        self.finish_btn = ttk.Button(action_frame, text="Finish Configuration", command=self.handle_finish, style="Accent.TButton")
-        self.finish_btn.pack(side=tk.RIGHT)
+        # Actions Panel moved to top of create_widgets
 
     def toggle_allow_users_state(self):
         if self.allow_users_var.get():
@@ -380,37 +345,121 @@ class ServerConfigApp:
         else:
             self.jwt_frame.pack_forget()
             self.brevo_frame.pack_forget()
-        self.auto_adjust_height()
 
     def toggle_rl_states(self):
         if self.rl_enable_var.get():
-            self.rl_adv_check.pack(side=tk.LEFT, padx=10)
-            self.toggle_rl_adv()
+            self.rl_adv_btn.pack(side=tk.LEFT, padx=10)
         else:
-            self.rl_adv_check.pack_forget()
-            self.rl_options_frame.pack_forget()
-        self.auto_adjust_height()
+            self.rl_adv_btn.pack_forget()
 
-    def toggle_rl_adv(self):
-        if self.rl_enable_var.get() and self.rl_adv_var.get():
-            self.rl_options_frame.pack(fill=tk.X, pady=(5, 0))
-        else:
-            self.rl_options_frame.pack_forget()
-        self.auto_adjust_height()
+    def open_rl_adv_dialog(self):
+        """Open rate limiter advanced settings in a popup dialog."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Rate Limiter — Advanced Settings")
+        dialog.geometry("500x200")
+        dialog.resizable(False, False)
+        dialog.grab_set()
+        dialog.transient(self.root)
+        
+        main = ttk.Frame(dialog, padding="15")
+        main.pack(fill=tk.BOTH, expand=True)
+        
+        ttk.Label(main, text="Limiter Database Path:").grid(row=0, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(main, textvariable=self.rl_path_var, width=35).grid(row=0, column=1, padx=5, pady=4)
+        ttk.Button(main, text="Browse", command=self.browse_rl_path).grid(row=0, column=2, pady=4)
+        
+        ttk.Label(main, text="Request Frequency:").grid(row=1, column=0, sticky=tk.W, pady=4)
+        ttk.Spinbox(main, from_=1, to=1000, textvariable=self.freq_var, width=10).grid(row=1, column=1, sticky=tk.W, padx=5, pady=4)
+        
+        ttk.Label(main, text="Reset Duration (sec):").grid(row=2, column=0, sticky=tk.W, pady=4)
+        ttk.Spinbox(main, from_=1, to=86400, textvariable=self.reset_var, width=10).grid(row=2, column=1, sticky=tk.W, padx=5, pady=4)
+        
+        ttk.Label(main, text="Cooldown Time (sec):").grid(row=3, column=0, sticky=tk.W, pady=4)
+        ttk.Spinbox(main, from_=1, to=86400, textvariable=self.cooldown_var, width=10).grid(row=3, column=1, sticky=tk.W, padx=5, pady=4)
+        
+        ttk.Button(main, text="Done", command=dialog.destroy, style="Accent.TButton").grid(row=4, column=0, columnspan=3, pady=(10, 0))
+        
+        # Center on parent
+        dialog.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (dialog.winfo_width() // 2)
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
 
-    def toggle_adv_net(self):
-        if self.show_adv_net_var.get():
-            self.adv_net_frame.pack(fill=tk.X, pady=(5, 0))
-        else:
-            self.adv_net_frame.pack_forget()
-        self.auto_adjust_height()
+    def open_adv_net_dialog(self):
+        """Open advanced network/connections settings in a popup dialog."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Advanced Connections Settings")
+        dialog.geometry("520x320")
+        dialog.resizable(False, False)
+        dialog.grab_set()
+        dialog.transient(self.root)
+        
+        main = ttk.Frame(dialog, padding="15")
+        main.pack(fill=tk.BOTH, expand=True)
+        
+        ttk.Label(main, text="Frontend Access Code (code):").grid(row=0, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(main, textvariable=self.access_code_var, width=35).grid(row=0, column=1, padx=5, pady=4)
+        
+        ttk.Label(main, text="Optional Password (password):").grid(row=1, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(main, textvariable=self.opt_password_var, width=35, show="●").grid(row=1, column=1, padx=5, pady=4)
+        
+        ttk.Label(main, text="Frontend website URL (URL):").grid(row=2, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(main, textvariable=self.url_var, width=35).grid(row=2, column=1, padx=5, pady=4)
+        
+        ttk.Label(main, text="CORS Origin Header (FrontendURL):").grid(row=3, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(main, textvariable=self.cors_var, width=35).grid(row=3, column=1, padx=5, pady=4)
+        
+        ttk.Label(main, text="Server Host:").grid(row=4, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(main, textvariable=self.host_var, width=35).grid(row=4, column=1, padx=5, pady=4)
+        
+        ttk.Label(main, text="Server Port:").grid(row=5, column=0, sticky=tk.W, pady=4)
+        ttk.Spinbox(main, from_=1, to=65535, textvariable=self.port_var, width=10).grid(row=5, column=1, sticky=tk.W, padx=5, pady=4)
+        
+        ttk.Label(main, text="Worker Threads:").grid(row=6, column=0, sticky=tk.W, pady=4)
+        ttk.Spinbox(main, from_=1, to=64, textvariable=self.threads_var, width=10).grid(row=6, column=1, sticky=tk.W, padx=5, pady=4)
+        
+        ttk.Button(main, text="Done", command=dialog.destroy, style="Accent.TButton").grid(row=7, column=0, columnspan=2, pady=(10, 0))
+        
+        # Center on parent
+        dialog.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (dialog.winfo_width() // 2)
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
 
-    def toggle_sys_setup(self):
-        if self.show_sys_setup_var.get():
-            self.sys_fields_frame.pack(fill=tk.X, pady=(5, 0))
-        else:
-            self.sys_fields_frame.pack_forget()
-        self.auto_adjust_height()
+    def open_sys_setup_dialog(self):
+        """Open workspace & system settings in a popup dialog."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Workspace & System Settings")
+        dialog.geometry("520x230")
+        dialog.resizable(False, False)
+        dialog.grab_set()
+        dialog.transient(self.root)
+        
+        main = ttk.Frame(dialog, padding="15")
+        main.pack(fill=tk.BOTH, expand=True)
+        
+        ttk.Label(main, text="Workspace Path:").grid(row=0, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(main, textvariable=self.workspace_var, width=35).grid(row=0, column=1, padx=5, pady=4)
+        ttk.Button(main, text="Browse", command=self.on_workspace_browse).grid(row=0, column=2, pady=4)
+        
+        ttk.Label(main, text="Python Executable:").grid(row=1, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(main, textvariable=self.python_var, width=35).grid(row=1, column=1, padx=5, pady=4)
+        ttk.Button(main, text="Browse", command=self.on_python_browse).grid(row=1, column=2, pady=4)
+        
+        ttk.Label(main, text="Cloudflared Path:").grid(row=2, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(main, textvariable=self.cf_var, width=35).grid(row=2, column=1, padx=5, pady=4)
+        ttk.Button(main, text="Browse", command=self.on_cf_browse).grid(row=2, column=2, pady=4)
+        
+        ttk.Label(main, text="Ngrok Auth Token:").grid(row=3, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(main, textvariable=self.ngrok_token_var, width=35).grid(row=3, column=1, columnspan=2, padx=5, pady=4, sticky=tk.EW)
+        
+        ttk.Button(main, text="Done", command=dialog.destroy, style="Accent.TButton").grid(row=4, column=0, columnspan=3, pady=(10, 0))
+        
+        # Center on parent
+        dialog.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (dialog.winfo_width() // 2)
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
 
     def on_workspace_browse(self):
         folder = filedialog.askdirectory(initialdir=self.workspace_var.get() or self.workspace_dir, title="Select Workspace Folder")
@@ -444,11 +493,6 @@ class ServerConfigApp:
         )
         if file:
             self.cf_var.set(os.path.normpath(file))
-
-    def auto_adjust_height(self):
-        self.root.update_idletasks()
-        self.root.geometry("")
-        self.center_window()
 
     def load_saved_data(self):
         config_path = config.get("config_path", "")
@@ -526,7 +570,6 @@ class ServerConfigApp:
             config.get("ngrok_token") or 
             ""
         )
-        self.toggle_sys_setup()
 
         self.toggle_allow_users_state()
         
@@ -549,8 +592,6 @@ class ServerConfigApp:
         self.host_var.set(server_data.get("host") or config.get("host", DEFAULT_HOST))
         self.port_var.set(server_data.get("port") or config.get("port", DEFAULT_PORT))
         self.threads_var.set(server_data.get("threads") or config.get("threads", DEFAULT_THREADS))
-        self.toggle_adv_net()
-        self.auto_adjust_height()
 
     def browse_dest(self):
         folder = filedialog.askdirectory(initialdir=self.workspace_dir, title="Select Destination Folder")
@@ -970,11 +1011,15 @@ class ServerConfigApp:
             with open(env_path, 'w') as f:
                 f.writelines(new_lines)
 
-        print(json.dumps(combined_config))
-        sys.stdout.flush()
+        try:
+            print(json.dumps(combined_config))
+            sys.stdout.flush()
+        except Exception:
+            pass
         
         if self.on_complete:
-            self.on_complete(combined_config)
+            self.root.after(0, lambda: self.on_complete(combined_config))
+            return
         else:
             self.root.destroy()
             sys.exit(0)

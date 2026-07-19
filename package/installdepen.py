@@ -88,9 +88,9 @@ def checkpython():
     return False, None, None
 
 def checkcloudflared():
-    # 1. AppData Local PersonalDrive bin check
+    # 1. AppData Local NasCloud bin check
     appdata_dir = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or os.path.expanduser("~")
-    local_cf = os.path.normpath(os.path.join(appdata_dir, "PersonalDrive", "bin", CLOUDFLARED_EXE))
+    local_cf = os.path.normpath(os.path.join(appdata_dir, "NasCloud", "bin", CLOUDFLARED_EXE))
     if os.path.exists(local_cf):
         return True, "local_cloudflared", local_cf
 
@@ -142,7 +142,7 @@ def downloadpython():
 def downloadcloudflared():
     """Download cloudflared directly into the AppData local bin directory."""
     appdata_dir = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or os.path.expanduser("~")
-    bin_dir = os.path.join(appdata_dir, "PersonalDrive", "bin")
+    bin_dir = os.path.join(appdata_dir, "NasCloud", "bin")
     os.makedirs(bin_dir, exist_ok=True)
     
     target_path = os.path.join(bin_dir, CLOUDFLARED_EXE)

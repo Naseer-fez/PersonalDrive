@@ -7,14 +7,14 @@ import shutil
 # ──────────────────────────────────────────────
 # BRANDING CONSTANTS — Single Source of Truth
 # ──────────────────────────────────────────────
-APP_NAME            = "PersonalDrive"
-APP_DISPLAY_NAME    = "Personal Drive"
+APP_NAME            = "NasCloud"
+APP_DISPLAY_NAME    = "NasCloud"
 APP_DESCRIPTION     = "Self-hosted personal cloud storage server"
 
 # Window Titles (used in root.title())
 SETUP_TITLE         = f"{APP_DISPLAY_NAME} Setup"
 SETUP_STEP1_TITLE   = f"{SETUP_TITLE} — Step 1: Workspace"
-SETUP_STEP2_TITLE   = f"{SETUP_TITLE} — Step 2: Cloud Tunnel Setup"
+SETUP_STEP2_TITLE   = f"{SETUP_TITLE} — Step 2: Add Your Files"
 SETUP_STEP3_TITLE   = f"{SETUP_TITLE} — Step 3: Code Server"
 CONFIG_TITLE        = f"{APP_DISPLAY_NAME} — Server Configuration"
 HELP_TITLE          = "Cloud Tunnel Help"
@@ -52,7 +52,7 @@ NGROK_SIGNUP_URL     = urls.NGROK_SIGNUP_URL if urls else "https://ngrok.com"
 NGROK_DASHBOARD_URL  = urls.NGROK_DASHBOARD_URL if urls else "https://dashboard.ngrok.com"
 
 GITHUB_OWNER         = urls.GITHUB_OWNER if urls else "Naseer-fez"
-GITHUB_REPO          = urls.GITHUB_REPO if urls else "PersonalDrive"
+GITHUB_REPO          = urls.GITHUB_REPO if urls else "NasCloud-Backend"
 GITHUB_BRANCH        = urls.GITHUB_BRANCH if urls else "main"
 GITHUB_ZIP_URL       = urls.GITHUB_ZIP_URL if urls else f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/archive/refs/heads/{GITHUB_BRANCH}.zip"
 GITHUB_EXTRACTED_DIR = f"{GITHUB_REPO}-{GITHUB_BRANCH}"
@@ -86,7 +86,7 @@ DEFAULT_THREADS      = 4
 # Resolve config directory (supports PyInstaller & AppData)
 # ──────────────────────────────────────────────
 _APPDATA_DIR = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or os.path.expanduser("~")
-_CONFIG_DIR = os.path.join(_APPDATA_DIR, "PersonalDrive")
+_CONFIG_DIR = os.path.join(_APPDATA_DIR, "NasCloud")
 try:
     os.makedirs(_CONFIG_DIR, exist_ok=True)
 except Exception:
@@ -278,9 +278,43 @@ class Config:
 
 config = Config()
 
+def get_resource_path(relative_path):
+    """Resolve resource path for both script runs and PyInstaller frozen exes."""
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.normpath(os.path.join(base_path, relative_path))
+
 def apply_google_light_theme(style, root):
     """Applies a premium, Google-inspired Light Theme (typical Windows installation white) to standard ttk widgets and root window."""
     root.configure(bg="#ffffff")
+    
+    # Enable Windows-specific taskbar icon grouping override
+    if sys.platform.startswith("win"):
+        try:
+            import ctypes
+            myappid = f"Naseer-fez.NasCloud.{APP_NAME}.1.0"
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        except Exception:
+            pass
+
+    # Try loading the icon
+    try:
+        icon_path = get_resource_path("nascloud.ico")
+        if hasattr(root, 'iconbitmap') and os.path.exists(icon_path):
+            root.iconbitmap(icon_path)
+            
+        png_path = get_resource_path("nascloud.png")
+        if os.path.exists(png_path):
+            from PIL import Image, ImageTk
+            img = Image.open(png_path)
+            photo = ImageTk.PhotoImage(img)
+            # Store reference to prevent garbage collection
+            root._icon_photo_ref = photo
+            root.iconphoto(False, photo)
+    except Exception as e:
+        print(f"Warning: Could not set window icon: {e}", file=sys.stderr)
     
     # Check if 'clam' theme is available and use it
     if 'clam' in style.theme_names():

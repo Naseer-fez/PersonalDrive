@@ -1,5 +1,5 @@
 """
-PersonalDrive — Build Script (Server.exe)
+NasCloud — Build Script (Server.exe)
 
 Packages the Server Launcher GUI into a single standalone .exe using PyInstaller.
 
@@ -7,7 +7,7 @@ Usage:
     python build_server_exe.py
 
 Output:
-    dist/PersonalDriveServer.exe
+    dist/NasCloudServer.exe
 """
 import subprocess
 import sys
@@ -17,7 +17,7 @@ import shutil
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ENTRY_POINT = os.path.join(SCRIPT_DIR, "server_launcher.py")
-EXE_NAME = "PersonalDriveServer"
+EXE_NAME = "NasCloudServer"
 DIST_DIR = os.path.join(SCRIPT_DIR, "dist")
 BUILD_DIR = os.path.join(SCRIPT_DIR, "build")
 SPEC_FILE = os.path.join(SCRIPT_DIR, f"{EXE_NAME}.spec")
@@ -112,6 +112,9 @@ def build():
         "--distpath", DIST_DIR,               # Output directory
         "--workpath", BUILD_DIR,              # Build temp directory
         "--specpath", SCRIPT_DIR,             # Spec file location
+        "--icon", os.path.join(SCRIPT_DIR, "nascloud.ico"),
+        "--add-data", f"{os.path.join(SCRIPT_DIR, 'nascloud.ico')};.",
+        "--add-data", f"{os.path.join(SCRIPT_DIR, 'nascloud.png')};.",
     ]
 
     # Add hidden imports

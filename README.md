@@ -1,161 +1,75 @@
-# Personal Drive
+<p align="center">
+  <img src="nascloud-icon.svg" alt="NasCloud" width="120">
+</p>
 
-[GitHub Repository](https://github.com/Naseer-fez/PersonalDrive)
+<h1 align="center">NasCloud Backend</h1>
+<p align="center">The API server behind your self-hosted NAS</p>
 
-A self-hosted, RESTful backend API for managing personal cloud storage, built with Flask.
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.x-3776AB?logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/Flask-3.x-000000?logo=flask&logoColor=white" alt="Flask">
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
+  <a href="https://github.com/Naseer-fez/NasCloud-Backend"><img src="https://img.shields.io/github/stars/Naseer-fez/NasCloud-Backend?style=social" alt="GitHub Stars"></a>
+</p>
 
-## Overview
+## About
 
-This project provides the core backend infrastructure for a personal file storage application (similar to Google Drive or Dropbox). It handles everything from user authentication and storage quotas to file chunking, directory management, and secure file sharing.
+NasCloud is a NAS (Network Attached Storage) management and access platform. This repo is the backend API that handles file storage, user accounts, uploads, downloads, sharing, and everything in between. It runs on your own machine and connects to the NasCloud Central Server through a Cloudflare tunnel, so you can access your files from anywhere.
 
-It solves the problem of needing a lightweight, self-hosted file management backend that doesn't rely on third-party cloud providers, while providing standard cloud-drive features like a trash bin, nested folder structures, and public sharing links.
+This is one piece of the NasCloud ecosystem. The other parts live in the [NasCloud Services](https://github.com/Naseer-fez/PersonalDrive) repo, which contains the Frontend (React web app) and the Central Server (authentication and URL resolution).
 
-## Features
+## Getting Started
 
-- **Chunked File Transfer**: Handles large file uploads and downloads by chunking data to prevent high memory consumption during transfers.
-- **Directory Management**: Full support for creating nested folders, moving files between directories, and renaming assets.
-- **Trash System**: Soft-delete functionality that moves files to a dedicated trash bin before permanent deletion.
-- **File Sharing**: Generates secure, public links for files and folders that can be accessed without requiring authentication.
-- **Storage Quotas**: Enforces user-specific storage limits in GB (configurable via environment variables).
-- **Rate Limiting**: IP and endpoint-based rate limiting to prevent abuse and brute-force attacks.
-- **User Authentication**: JWT-based authentication for securing private endpoints, along with email-based password recovery.
-- **JSON Folder Serialization**: Traverses and caches the user's directory structure into a JSON format for rapid frontend retrieval.
+### Windows Installer (Recommended)
 
-## Architecture
+The easiest way to get up and running. Download **NasCloudSetup.exe** from the [latest release](https://github.com/Naseer-fez/NasCloud-Backend/releases/latest), run the setup wizard, and you're good to go. The installer handles configuration, creates your storage directories, and launches the server with a simple GUI.
 
-The system follows a standard client-server architecture where the Flask REST API acts as the bridge between the client, a relational database, and the local file system.
+See the [package documentation](package/README.md) for more details on building from source.
 
-```text
-Client
-   │
-   ▼
-REST API (Flask)
-   │
-   ├──► Authentication (JWT / SQLite)
-   │
-   ├──► Rate Limiter (apirlpy)
-   │
-   └──► Storage Engine (Local Filesystem)
-          ├── DestinationFolder/ (Raw user files)
-          └── Userfolder/ (Serialized JSON directory states)
-```
+### Manual Setup
 
-Requests are routed through blueprints grouped by functional areas (e.g., file upload, user operations). The storage layer (`utils/Storage.py`) abstracts standard OS operations and handles the reading/writing of file chunks directly to the disk.
-
-## Project Structure
-
-- `models/`: Database schema definitions (SQLAlchemy).
-- `routes/`: Flask blueprints divided by feature (`fileupload`, `filedownload`, `filestructure`, `Useroperations`, etc.).
-- `utils/`: Core business logic and helper functions.
-  - `Storage.py`: Abstraction layer for all local file system interactions.
-  - `FolderStructure.py`: Traverses directories and builds JSON representations.
-  - `ratelimiter.py`: IP/endpoint request throttling implementation.
-  - `auth.py`: JWT protection wrappers.
-- `userdetails/`: Stores the serialized JSON representation of each user's file structure.
-
-## Technologies Used
-
-**Backend**
-- Python 3
-- Flask
-- Gunicorn
-
-**Database**
-- SQLite (Default fallback)
-- MySQL (Supported via PyMySQL)
-- Flask-SQLAlchemy (ORM)
-
-**Authentication**
-- Flask-JWT-Extended
-
-**Storage**
-- Local OS File System
-
-## Installation
-
-Clone the repository:
 ```bash
-git clone https://github.com/Naseer-fez/PersonalDrive
-cd Personaldrive
-```
-
-Install dependencies:
-```bash
+git clone https://github.com/Naseer-fez/NasCloud-Backend.git
+cd NasCloud-Backend
 pip install -r requirements.txt
-```
-
-Create necessary storage directories (based on your configuration):
-```bash
-mkdir storage_data
-mkdir user_data
-```
-
-Configure environment variables:
-```bash
 cp sample.env .env
-# Edit .env with your specific paths and secrets
-```
-
-Initialize the database and run the server locally:
-```bash
+# Edit .env with your secrets
 python app.py
 ```
-The server will start on `http://0.0.0.0:5002`.
 
-## Usage
+The server starts on `http://0.0.0.0:5002`.
 
-This project is entirely API-driven. Clients interact with the endpoints to perform actions.
+## Configuration
 
-**Authentication Flow:**
-1. Call `/createaccount/` with a username and password to generate a new user profile.
-2. Call `/login/` to retrieve a JWT token.
-3. Attach this token to the header for subsequent private requests.
+NasCloud uses two config files. `.env` holds your secrets and database connection strings, while `config.json` controls runtime settings like storage paths, chunk sizes, and rate limiting. Copy `sample.env` to `.env` to get started.
 
-**File Management:**
-- Upload files using `multipart/form-data` to `/uploadfile/<userid>`.
-- Retrieve the current directory structure via `/structure/<userid>`.
-- Download files or zipped folders from `/download/<userid>`.
-- Delete files by moving them to the trash via `/deletefile/<userid>/`.
+| Variable | Description |
+|----------|-------------|
+| `secret` | Flask secret key for session signing |
+| `jwt` | Secret key for signing JWT tokens |
+| `Database` | SQLAlchemy database URI (defaults to SQLite) |
+| `EmailAPi` | Brevo SMTP API key for password recovery emails |
+| `FrontendURL` | Allowed CORS origins (defaults to `*`) |
 
-## API
+See [sample.env](sample.env) for the full list, and [config.json](config.json) for runtime options.
 
-A complete list of endpoints, accepted parameters, and return types is documented in the [endpoints.md](./endpoints.md) file located in the root of the repository.
+## API Reference
 
-Major routing groups include:
-- `FileUpload` & `FileDownload`
-- `FolderStructure`
-- `FileOperations` (Move, Rename, Delete)
-- `Trash`
-- `PublicAccess` (Sharing links)
-- `UserOperations`
+NasCloud comes with a built-in interactive API playground at `/docs`. For the full endpoint reference, see [endpoints.md](endpoints.md).
 
-## Development
+## How It Works
 
-**Running Locally:**
-Ensure your `.env` is configured and run `python app.py`. The built-in Flask development server will start with debug mode enabled.
+When you start the backend, it opens a Cloudflare tunnel and registers its public URL with the NasCloud Central Server. The frontend then asks the Central Server where your backend lives, and connects directly. All your files stay on your machine.
 
-**Production Deployment:**
-Do not use the Flask development server in production. A `gunicorn` dependency is included in `requirements.txt` for WSGI server deployment.
+## Tech Stack
 
-## Known Limitations
-
-- **In-Memory Zip Creation:** When a user downloads a folder, the `Storage.py` script utilizes `io.BytesIO()` to generate the zip archive in memory before streaming. Downloading excessively large folders could cause Out of Memory (OOM) errors on the server.
-- **Local Filesystem Coupling:** The storage engine is strictly tied to the local OS filesystem, which prevents horizontal scaling across multiple application servers without a shared network drive (like NFS).
-- **Synchronous File IO:** File transfers and chunk writing run synchronously, which may block worker threads during heavy concurrent uploads.
-
-## Contributing
-
-1. Fork the repository.
-2. Create a feature branch for your changes.
-3. Ensure your modifications don't break existing file routing or quota logic.
-4. Submit a pull request.
+- Python 3 / Flask
+- SQLAlchemy (SQLite, MySQL, or PostgreSQL)
+- Flask-JWT-Extended
+- Gunicorn (Linux/macOS) / Waitress (Windows)
+- Cloudflare Tunnel
+- stream-zip for streaming folder downloads
 
 ## License
 
-Copyright 2026 Shaik Naseer John Ahmed
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

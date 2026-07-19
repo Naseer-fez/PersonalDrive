@@ -1,5 +1,5 @@
 """
-PersonalDrive — Server Launcher
+NasCloud — Server Launcher
 
 Reads all paths from packageconfig.json, sets up the virtual environment
 if needed, starts the Flask/Waitress server, configures and launches
@@ -20,7 +20,7 @@ try:
     from pckconfig import (
         config, APP_DISPLAY_NAME, APP_NAME,
         DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS, CENTRAL_SERVER_URL,
-        apply_google_light_theme
+        apply_google_light_theme, get_resource_path
     )
     from packages import packages
     from GUIconfig import ServerConfigApp
@@ -28,7 +28,7 @@ except ImportError:
     from package.pckconfig import (
         config, APP_DISPLAY_NAME, APP_NAME,
         DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS, CENTRAL_SERVER_URL,
-        apply_google_light_theme
+        apply_google_light_theme, get_resource_path
     )
     from package.packages import packages
     from package.GUIconfig import ServerConfigApp
@@ -38,7 +38,7 @@ class ServerLauncher:
     def __init__(self, root):
         self.root = root
         self.root.title(f"{APP_DISPLAY_NAME} — Server")
-        self.root.geometry("600x520")
+        self.root.geometry("600x570")
         self.root.resizable(False, False)
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -62,7 +62,7 @@ class ServerLauncher:
         
         # Cloudflared bin setup
         appdata_dir = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or os.path.expanduser("~")
-        self.bin_dir = os.path.join(appdata_dir, "PersonalDrive", "bin")
+        self.bin_dir = os.path.join(appdata_dir, "NasCloud", "bin")
         self.cloudflared_path = config.get("cloudflared", "") or os.path.join(self.bin_dir, "cloudflared.exe")
         
         self.host = config.get("host", DEFAULT_HOST)
@@ -89,10 +89,22 @@ class ServerLauncher:
         header = ttk.Frame(main)
         header.pack(fill=tk.X, pady=(0, 12))
 
+        try:
+            logo_path = get_resource_path("nascloud.png")
+            if os.path.exists(logo_path):
+                from PIL import Image, ImageTk
+                pil_img = Image.open(logo_path).resize((32, 32), Image.Resampling.LANCEZOS)
+                self.logo_photo = ImageTk.PhotoImage(pil_img)
+                self.logo_lbl = ttk.Label(header, image=self.logo_photo)
+                self.logo_lbl.pack(side=tk.LEFT, padx=(0, 10))
+        except Exception as e:
+            print(f"Warning: Could not load logo image: {e}", file=sys.stderr)
+
         ttk.Label(
             header,
-            text=f"⚡ {APP_DISPLAY_NAME} Server",
-            font=("Segoe UI", 14, "bold")
+            text=f"{APP_DISPLAY_NAME} Server",
+            font=("Segoe UI", 16, "bold"),
+            foreground="#202124"
         ).pack(side=tk.LEFT)
 
         # ── Status Section ──
@@ -312,7 +324,7 @@ class ServerLauncher:
         if not self.workspace or not os.path.isdir(self.workspace):
             self.log("ERROR: Workspace directory not found.", "error")
             self.log(f"  Path: {self.workspace}", "error")
-            self.log("Run PersonalDriveSetup.exe first to configure.", "error")
+            self.log("Run NasCloudSetup.exe first to configure.", "error")
             self.set_status("Configuration Error", "#d93025")
             self.root.after(0, lambda: self.start_btn.config(state="normal"))
             self.root.after(0, lambda: self.stop_btn.config(state="disabled"))
@@ -404,7 +416,7 @@ class ServerLauncher:
                 self.cloudflared_path = find_cf
                 self.log(f"Found cloudflared fallback in system PATH: {self.cloudflared_path}", "success")
             else:
-                self.log("ERROR: cloudflared.exe not found. Please run PersonalDriveSetup.exe first to install dependencies.", "error")
+                self.log("ERROR: cloudflared.exe not found. Please run NasCloudSetup.exe to install it.", "error")
                 self.set_status("● Running (Local Only)", "#1e8e3e")
                 self.log("─" * 45, "info")
                 self.log(f"{APP_DISPLAY_NAME} is ready (Local Only)!", "success")
@@ -559,7 +571,7 @@ class ServerLauncher:
                     data=payload,
                     headers={
                         'Content-Type': 'application/json',
-                        'User-Agent': 'PersonalDrive-Server/1.0'
+                        'User-Agent': 'NasCloud-Server/1.0'
                     },
                     method='POST'
                 )
@@ -584,7 +596,7 @@ class ServerLauncher:
                         data=payload,
                         headers={
                             'Content-Type': 'application/json',
-                            'User-Agent': 'PersonalDrive-Server/1.0'
+                            'User-Agent': 'NasCloud-Server/1.0'
                         },
                         method='POST'
                     )

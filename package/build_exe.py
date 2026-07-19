@@ -1,5 +1,5 @@
 """
-PersonalDrive — Build Script (.exe)
+NasCloud — Build Script (.exe)
 
 Packages the entire Setup & Configuration wizard into a single
 standalone .exe using PyInstaller.
@@ -8,7 +8,7 @@ Usage:
     python build_exe.py
 
 Output:
-    dist/PersonalDriveSetup.exe
+    dist/NasCloudSetup.exe
 """
 import subprocess
 import sys
@@ -18,7 +18,7 @@ import shutil
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ENTRY_POINT = os.path.join(SCRIPT_DIR, "main.py")
-EXE_NAME = "PersonalDriveSetup"
+EXE_NAME = "NasCloudSetup"
 DIST_DIR = os.path.join(SCRIPT_DIR, "dist")
 BUILD_DIR = os.path.join(SCRIPT_DIR, "build")
 SPEC_FILE = os.path.join(SCRIPT_DIR, f"{EXE_NAME}.spec")
@@ -98,6 +98,9 @@ def build():
         "--distpath", DIST_DIR,               # Output directory
         "--workpath", BUILD_DIR,              # Build temp directory
         "--specpath", SCRIPT_DIR,             # Spec file location
+        "--icon", os.path.join(SCRIPT_DIR, "nascloud.ico"),
+        "--add-data", f"{os.path.join(SCRIPT_DIR, 'nascloud.ico')};.",
+        "--add-data", f"{os.path.join(SCRIPT_DIR, 'nascloud.png')};.",
     ]
 
     # Add hidden imports
