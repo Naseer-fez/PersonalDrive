@@ -4,12 +4,16 @@ import hashlib
 from flask import current_app
 import time
 import base64
+from config import config
 # secret=b"hello"
 
 
 def get_secret():
-    return current_app.config["secret"].encode("utf-8")
-
+    secret = (
+        current_app.config.get("SECRET_KEY")
+        or config.get("SECRET_KEY")
+    )
+    return secret.encode("utf-8")    
 def generatelink(data):  
     tooken= hmac.new(get_secret(), data.encode(), hashlib.sha256).hexdigest()
     return f"{data}/{tooken}"

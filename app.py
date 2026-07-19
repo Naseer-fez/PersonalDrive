@@ -37,12 +37,13 @@ from datetime import timedelta
 from routes.main import resetlink
 #Models
 from models.database import db
+import secrets
 load_dotenv()
 from config import config
 def Createapp():
     app = Flask(__name__)
     #Scerets
-    app.config["secret"] = os.getenv("secret") 
+    app.config["secret"] = os.getenv("secret",secrets.token_urlsafe(32)) 
     #Configs
     FrontendURL=[url.strip()
     for url in os.getenv("FrontendURL", "*").split(",")

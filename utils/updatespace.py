@@ -74,6 +74,9 @@ def checkchanges(userid,path=None):
         path=Fileoperation.getstatsfile(userid)
     try:
         data=Fileoperation.jsonread(userid=userid,path=path)
+        if not isinstance(data, dict):
+            Createfilestructure(userid)
+            return [-1]
         value=data.get("update")
         if (value is None) or (value==1):
             Createfilestructure(userid) #forsearch
@@ -82,7 +85,7 @@ def checkchanges(userid,path=None):
             return [0,data]
         else :
             return [1,data]
-    except  (FileNotFoundError,TypeError) as e: #measn that the file is not created yet
+    except Exception as e: #means that the file is not created yet or corrupt
         Createfilestructure(userid)
         return [-1]
     
