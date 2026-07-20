@@ -110,4 +110,4 @@ if __name__ == "__main__":
     threading.Thread(target=background_setup, daemon=True).start()
     port=config.get("port",5002)
     host=config.get("host","0.0.0.0")
-    app.run(host=host, port=int(port), debug=False)
+    app.run(host=host, port=int(port), debug=True)

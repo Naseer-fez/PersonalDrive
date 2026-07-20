@@ -11,9 +11,14 @@ from config import config
 def get_secret():
     secret = (
         current_app.config.get("SECRET_KEY")
+        or current_app.config.get("secret")
         or config.get("SECRET_KEY")
+        or config.get("secret")
+        or "default_secret_key"
     )
-    return secret.encode("utf-8")    
+    if isinstance(secret, str):
+        return secret.encode("utf-8")
+    return secret
 def generatelink(data):  
     tooken= hmac.new(get_secret(), data.encode(), hashlib.sha256).hexdigest()
     return f"{data}/{tooken}"
