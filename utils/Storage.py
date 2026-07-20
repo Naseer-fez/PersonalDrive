@@ -184,7 +184,7 @@ class LocalStorage:
         filename=self.getreativepath(userid=userid,filename=filepath)
         filepath=self.getfilepath(userid=userid,filename=filename)
         return Path(filepath).mkdir(parents=True, exist_ok=True)
-    
+        
     def getfilename(self,userid,filepath):
         filename=self.getreativepath(userid=userid,filename=filepath)
         filepath=self.getfilepath(userid=userid,filename=filename)
@@ -197,11 +197,11 @@ class LocalStorage:
             if self.isdirectory(pathobj=filepath):
                 shutil.rmtree(filepath)
             else:
-                
                 os.remove(filepath)
             return filepath
         except Exception as e:
             return 0
+
     def createnewuser(self,userid):
         userid=str(userid)
         filepath=self.source/userid
@@ -209,7 +209,8 @@ class LocalStorage:
         jsonfilepath=self.userdetails/userid/jsn
         Path(filepath).mkdir(parents=True, exist_ok=True)
         Path(jsonfilepath).parent.mkdir(parents=True, exist_ok=True)
-        self.jsonwrite(userid=userid, data=[], filepath=jsonfilepath)
+        if not os.path.exists(jsonfilepath):
+            self.jsonwrite(userid=userid, data=[], filepath=jsonfilepath)
         trashpath = self.getfilepath(userid=userid, filename=self.trash)
         Path(trashpath).mkdir(parents=True, exist_ok=True)
         return 
@@ -226,12 +227,12 @@ class LocalStorage:
         newfilepath=self.getfilepath(userid=userid,filename=newfilename)
         os.rename(filepath,newfilepath)     #rename the file
         return 1
+        
     def trashdata(self,userid):
         userid=str(userid)
         filepath=self.gettrashjson(userid=userid)
         data=self.jsonread(userid,path=filepath)
         return [data,filepath]
-        
         
     def locationchnage(self,userid,oldpath,tochange):
         # Resolve source absolute path

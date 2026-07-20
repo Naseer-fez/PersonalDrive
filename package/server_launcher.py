@@ -12,6 +12,8 @@ import time
 import threading
 import subprocess
 import urllib.request
+import shutil
+import zipfile
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
@@ -20,7 +22,8 @@ try:
     from pckconfig import (
         config, APP_DISPLAY_NAME, APP_NAME,
         DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS, CENTRAL_SERVER_URL,
-        apply_google_light_theme, get_resource_path
+        apply_google_light_theme, get_resource_path,
+        GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH, GITHUB_ZIP_URL
     )
     from packages import packages
     from GUIconfig import ServerConfigApp
@@ -28,7 +31,8 @@ except ImportError:
     from package.pckconfig import (
         config, APP_DISPLAY_NAME, APP_NAME,
         DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THREADS, CENTRAL_SERVER_URL,
-        apply_google_light_theme, get_resource_path
+        apply_google_light_theme, get_resource_path,
+        GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH, GITHUB_ZIP_URL
     )
     from package.packages import packages
     from package.GUIconfig import ServerConfigApp
@@ -71,6 +75,9 @@ class ServerLauncher:
 
         self.create_widgets()
         self.center_window()
+        
+        # Start automatic background check for GitHub updates
+        threading.Thread(target=self._verify_and_check_updates, args=(False,), daemon=True).start()
 
     def center_window(self):
         self.root.update_idletasks()
@@ -92,9 +99,9 @@ class ServerLauncher:
         try:
             logo_path = get_resource_path("nascloud.png")
             if os.path.exists(logo_path):
-                from PIL import Image, ImageTk
-                pil_img = Image.open(logo_path).resize((32, 32), Image.Resampling.LANCEZOS)
-                self.logo_photo = ImageTk.PhotoImage(pil_img)
+                original_img = tk.PhotoImage(file=logo_path)
+                w, h = original_img.width(), original_img.height()
+                self.logo_photo = original_img.subsample(max(1, w // 32), max(1, h // 32))
                 self.logo_lbl = ttk.Label(header, image=self.logo_photo)
                 self.logo_lbl.pack(side=tk.LEFT, padx=(0, 10))
         except Exception as e:
@@ -205,6 +212,12 @@ class ServerLauncher:
             command=self.open_config_gui
         )
         self.config_btn.pack(side=tk.LEFT, padx=(8, 0))
+
+        self.check_update_btn = ttk.Button(
+            btn_frame, text="🔄  Check Updates",
+            command=lambda: threading.Thread(target=self._verify_and_check_updates, args=(True,), daemon=True).start()
+        )
+        self.check_update_btn.pack(side=tk.LEFT, padx=(8, 0))
 
         ttk.Button(
             btn_frame, text="Exit",
@@ -625,6 +638,189 @@ class ServerLauncher:
             self.log("Server settings reloaded.", "success")
             
         ServerConfigApp(config_win, on_complete=on_complete, on_cancel=config_win.destroy)
+
+    # ── GitHub Version Verification & Update ─────────────────
+    def _verify_and_check_updates(self, manual=False):
+        """Check current program hash against latest GitHub commit SHA."""
+        if manual:
+            self.log("Checking GitHub for backend code updates...", "info")
+        
+        current_hash = (config.get("program_hash") or "").strip()
+        api_url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/commits/{GITHUB_BRANCH}"
+        
+        try:
+            req = urllib.request.Request(
+                api_url,
+                headers={
+                    'User-Agent': 'NasCloud-Server/1.0',
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                latest_sha = (data.get("sha") or "").strip()
+        except Exception as e:
+            if manual:
+                self.log(f"Failed to check updates from GitHub: {e}", "warning")
+                self.root.after(0, lambda: messagebox.showwarning(
+                    "Update Check Failed",
+                    f"Could not connect to GitHub to verify updates:\n{e}",
+                    parent=self.root
+                ))
+            return
+
+        if not latest_sha:
+            return
+
+        # Case 1: No current hash saved yet (First verification)
+        if not current_hash:
+            config.set("program_hash", latest_sha)
+            self.log(f"Initial program hash verified and saved: {latest_sha[:8]}...", "success")
+            if manual:
+                self.root.after(0, lambda: messagebox.showinfo(
+                    "Check Updates",
+                    f"Current program hash initialized and verified:\nCommit {latest_sha[:8]}",
+                    parent=self.root
+                ))
+            return
+
+        # Case 2: New version found
+        if latest_sha != current_hash:
+            self.log(f"New version found on GitHub! Commit: {latest_sha[:8]} (Current: {current_hash[:8]})", "warning")
+            self.root.after(0, lambda: self._prompt_update(latest_sha))
+            return
+
+        # Case 3: Up to date
+        if manual:
+            self.log("Backend code is up to date with GitHub main branch.", "success")
+            self.root.after(0, lambda: messagebox.showinfo(
+                "Check Updates",
+                "You are already running the latest version of the backend code!",
+                parent=self.root
+            ))
+
+    def _prompt_update(self, latest_sha):
+        """Prompt user on the GUI if they want to update to the new version."""
+        confirm = messagebox.askyesno(
+            "New Version Found",
+            f"A new version of the backend code was found on GitHub (commit {latest_sha[:7]}).\n\n"
+            "Do you want to update it right now?\n\n"
+            "Note: Protected folders (like storage, userdetails, data, env) and database/config files will NOT be replaced.",
+            parent=self.root
+        )
+        if confirm:
+            threading.Thread(target=self._perform_update, args=(latest_sha,), daemon=True).start()
+
+    def _perform_update(self, latest_sha):
+        """Download latest zip from GitHub and replace workspace code while preserving protected folders."""
+        self.log(f"Starting update to commit {latest_sha[:8]}...", "warning")
+        if not self.workspace or not os.path.exists(self.workspace):
+            self.log("ERROR: Workspace directory is not valid. Cannot update.", "error")
+            return
+
+        appdata_dir = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or os.path.expanduser("~")
+        tmp_update_dir = os.path.join(appdata_dir, "NasCloud", "update_tmp")
+        os.makedirs(tmp_update_dir, exist_ok=True)
+        zip_path = os.path.join(tmp_update_dir, "update.zip")
+
+        try:
+            self.log(f"Downloading source repository from {GITHUB_ZIP_URL}...", "info")
+            urllib.request.urlretrieve(GITHUB_ZIP_URL, zip_path)
+            
+            self.log("Extracting updated files...", "info")
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(tmp_update_dir)
+            
+            # Find extracted root (usually NasCloud-Backend-main)
+            extracted_subdirs = [
+                os.path.join(tmp_update_dir, d) for d in os.listdir(tmp_update_dir)
+                if os.path.isdir(os.path.join(tmp_update_dir, d)) and d != "__pycache__"
+            ]
+            if not extracted_subdirs:
+                raise Exception("Extracted archive did not contain a project directory.")
+            extracted_dir = extracted_subdirs[0]
+
+            # Define protected items that must NOT be wiped or overwritten
+            protected_folders = {
+                "storage", "userdetails", "test", "data", "env", "package", ".git", "__pycache__"
+            }
+            # Add configured directory names if they exist
+            for k in ["DestinationFolder", "Userfolder", "ratelimiter"]:
+                val = config.get(k)
+                if val and isinstance(val, str):
+                    protected_folders.add(os.path.basename(os.path.normpath(val)).lower())
+
+            protected_files = {
+                "config.json", "packageconfig.json", "config.py", ".env", "sample.env"
+            }
+
+            self.log("Replacing old workspace files while preserving protected data and configs...", "info")
+            
+            # 1. Wipe existing unprotected items in self.workspace
+            for item in os.listdir(self.workspace):
+                item_path = os.path.join(self.workspace, item)
+                item_lower = item.lower()
+                if os.path.isdir(item_path):
+                    if item_lower in protected_folders:
+                        continue
+                    try:
+                        shutil.rmtree(item_path, ignore_errors=True)
+                    except Exception as e:
+                        self.log(f"Warning: Could not remove old directory {item}: {e}", "warning")
+                elif os.path.isfile(item_path):
+                    if item_lower in protected_files or item_lower.endswith(".db") or item_lower.endswith(".sqlite") or item_lower.endswith(".sqlite3"):
+                        continue
+                    try:
+                        os.remove(item_path)
+                    except Exception as e:
+                        self.log(f"Warning: Could not remove old file {item}: {e}", "warning")
+
+            # 2. Copy new items from extracted_dir to self.workspace
+            for item in os.listdir(extracted_dir):
+                if item == "remove.txt":
+                    continue
+                src_path = os.path.join(extracted_dir, item)
+                dst_path = os.path.join(self.workspace, item)
+                item_lower = item.lower()
+
+                if os.path.isdir(src_path):
+                    if item_lower in protected_folders and os.path.exists(dst_path):
+                        # Protected directory already exists in workspace — keep existing
+                        continue
+                    if os.path.exists(dst_path):
+                        shutil.rmtree(dst_path, ignore_errors=True)
+                    shutil.copytree(src_path, dst_path)
+                elif os.path.isfile(src_path):
+                    if item_lower in protected_files or item_lower.endswith(".db") or item_lower.endswith(".sqlite") or item_lower.endswith(".sqlite3"):
+                        if os.path.exists(dst_path):
+                            # Protected local file already exists — do not overwrite
+                            continue
+                    shutil.copy2(src_path, dst_path)
+
+            # Cleanup temp zip and extracted dir
+            shutil.rmtree(tmp_update_dir, ignore_errors=True)
+
+            # Update saved hash
+            config.set("program_hash", latest_sha)
+            self.log(f"Update complete! Code updated to commit {latest_sha[:8]}.", "success")
+            self.root.after(0, lambda: messagebox.showinfo(
+                "Update Complete",
+                f"Backend code has been successfully updated to version {latest_sha[:7]}!\n\n"
+                "All protected folders, databases, and configuration files were preserved.",
+                parent=self.root
+            ))
+
+        except Exception as e:
+            self.log(f"ERROR: Failed to perform code update: {e}", "error")
+            self.root.after(0, lambda: messagebox.showerror(
+                "Update Error",
+                f"An error occurred during the update process:\n{e}",
+                parent=self.root
+            ))
+            try:
+                shutil.rmtree(tmp_update_dir, ignore_errors=True)
+            except Exception:
+                pass
 
     # ── Window Close ───────────────────────────────────────
     def on_close(self):

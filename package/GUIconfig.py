@@ -81,9 +81,9 @@ class ServerConfigApp:
         try:
             logo_path = get_resource_path("nascloud.png")
             if os.path.exists(logo_path):
-                from PIL import Image, ImageTk
-                pil_img = Image.open(logo_path).resize((32, 32), Image.Resampling.LANCEZOS)
-                self.logo_photo = ImageTk.PhotoImage(pil_img)
+                original_img = tk.PhotoImage(file=logo_path)
+                w, h = original_img.width(), original_img.height()
+                self.logo_photo = original_img.subsample(max(1, w // 32), max(1, h // 32))
                 self.logo_lbl = ttk.Label(self.header_frame, image=self.logo_photo)
                 self.logo_lbl.pack(side=tk.LEFT, padx=(0, 10))
         except Exception as e:

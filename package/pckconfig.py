@@ -10,6 +10,7 @@ import shutil
 APP_NAME            = "NasCloud"
 APP_DISPLAY_NAME    = "NasCloud"
 APP_DESCRIPTION     = "Self-hosted personal cloud storage server"
+APP_VERSION         = "v1.0.1"
 
 # Window Titles (used in root.title())
 SETUP_TITLE         = f"{APP_DISPLAY_NAME} Setup"
@@ -136,7 +137,8 @@ _DEFAULT_CONFIG = {
     "initial_email": "",
     "initial_password": "",
     "bind_host": "0.0.0.0",
-    "local_host": "127.0.0.1"
+    "local_host": "127.0.0.1",
+    "program_hash": ""
 }
 
 
@@ -229,7 +231,7 @@ class Config:
             "allowusers", "Allowlogin", "api_key", "jwtduration", "ratelimiter",
             "FrontendURL", "URL", "Ratelimiter", "Allowfreq", "resettime",
             "cooldowntime", "host", "port", "threads", "access_code",
-            "opt_password", "trash", "stats", "file", "trashfile"
+            "opt_password", "trash", "stats", "file", "trashfile", "program_hash"
         ]
         for k in mirror_keys:
             if k in server_data and server_data[k] is not None:
@@ -294,7 +296,7 @@ def apply_google_light_theme(style, root):
     if sys.platform.startswith("win"):
         try:
             import ctypes
-            myappid = f"Naseer-fez.NasCloud.{APP_NAME}.1.0"
+            myappid = f"Naseer-fez.NasCloud.{APP_NAME}.{APP_VERSION}"
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
         except Exception:
             pass
@@ -307,9 +309,8 @@ def apply_google_light_theme(style, root):
             
         png_path = get_resource_path("nascloud.png")
         if os.path.exists(png_path):
-            from PIL import Image, ImageTk
-            img = Image.open(png_path)
-            photo = ImageTk.PhotoImage(img)
+            import tkinter as tk
+            photo = tk.PhotoImage(file=png_path)
             # Store reference to prevent garbage collection
             root._icon_photo_ref = photo
             root.iconphoto(False, photo)

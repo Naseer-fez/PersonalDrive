@@ -121,6 +121,14 @@ def build():
     for mod in hidden_imports:
         cmd.extend(["--hidden-import", mod])
 
+    # Exclude heavy unnecessary modules and Pillow C-extensions (_avif alone is 7.5 MB)
+    excluded_modules = [
+        "numpy", "pandas", "scipy", "matplotlib", "IPython", "pytest", "docutils",
+        "PIL._avif", "PIL._webp", "PIL._imagingcms", "PIL._imagingmath", "PIL._imagingmorph"
+    ]
+    for mod in excluded_modules:
+        cmd.extend(["--exclude-module", mod])
+
     # Add the entry point
     cmd.append(ENTRY_POINT)
 
