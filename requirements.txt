@@ -9,3 +9,4 @@ waitress
 requests
 psycopg2-binary
 apirlpy
+rapidfuzz

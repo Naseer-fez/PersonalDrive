@@ -1,21 +1,24 @@
 from utils.Storage import get_storage
 from utils.FolderStructure import Createfilestructure
 from utils.updatespace import jsonoperation,checkchanges
+from rapidfuzz import process,fuzz
 Fileoperation=get_storage()
 
 def searchfile(userid,tofind):
-    #check if the cache exist 
+    # Check if the user exists
+    exists, _ = Fileoperation.userexist(str(userid))
+    if not exists:
+        return [-1, "User not found"]
+        
     filepath=Fileoperation.getfilesjson(userid) #create a substitute of this
     checkchanges(userid=userid) #Because i need accurate files so , the createfolder will do that for me 
-    try:
-        filedata=Fileoperation.jsonread(userid=userid,path=filepath) #meaning reading the cache file path
-    except FileNotFoundError as e:
+    filedata=Fileoperation.jsonread(userid=userid,path=filepath) #meaning reading the cache file path
+    if not isinstance(filedata, dict):
         filedata=createfilescache(userid,filepath)
         if filedata==-1:
             return [-1,"User not found"]
-        jsonoperation(userid=userid,data=filedata,path=filepath)
-    except Exception as e:
-        return [-1,str(e)]
+        if not isinstance(filedata, dict):
+            return [-1, "Failed to load files cache"]
     filedata=filelookup(filename=tofind,source=filedata)
     return filedata[0],filedata[1]
     
@@ -31,20 +34,30 @@ def createfilescache(userid,path):
     #Now start searching for the user
 
 def filelookup(filename,source):
-    #time to search
-    if filename  in source:
-        return [1,source[filename]]
-    else:
+    #time to search this si better for eact search 
+    # if filename  in source:
+    #     return [1,source[filename]]
+    # else:
+    #     return [-1,"No file found"]
+    matches=process.extract(
+        query=filename,
+        choices=source.keys(),
+        scorer=fuzz.WRatio,
+        limit=20,
+        score_cutoff=60
+        
+    )
+    if not matches:
         return [-1,"No file found"]
-    
-
+    results=[]
+    for name,_,__ in matches:
+        paths = source.get(name, [])
+        if isinstance(paths, list):
+            results.extend(paths)
+        else:
+            results.append(paths)
+    return [1,results]
 
 
 if __name__=="__main__":
-    print()
-    
-    
-    
-    
-
-    
+    pass
