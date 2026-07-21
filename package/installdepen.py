@@ -123,7 +123,7 @@ def progress(block_num, block_size, total_size):
     percent = min(downloaded * 100 / total_size, 100)
     print(f"\rDownloading... {percent:.1f}%", end="")
 
-def downloadpython():
+def downloadpython(reporthook=None):
     """Download Python installer. Returns the installer path for the user to run."""
     arch = getarch()
     if arch == "AMD64":
@@ -136,7 +136,9 @@ def downloadpython():
         URL = f"https://www.python.org/ftp/python/{PYTHON_VERSION}/python-{PYTHON_VERSION}-amd64.exe"
        
     Filename = os.path.join(get_workspace_dir(), "python-installer.exe")
-    DOWNLOAD.urlretrieve(URL, Filename, reporthook=progress)
+    if reporthook is None:
+        reporthook = progress
+    DOWNLOAD.urlretrieve(URL, Filename, reporthook=reporthook)
     return Filename
 
 def downloadcloudflared():

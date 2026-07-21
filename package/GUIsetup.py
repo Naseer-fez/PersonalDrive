@@ -513,15 +513,21 @@ class ProgramSetupApp:
                 
                 def run_download():
                     try:
+                        is_indeterminate = [False]
                         def reporthook(block_num, block_size, total_size):
                             if total_size <= 0:
+                                if not is_indeterminate[0]:
+                                    self.root.after(0, lambda: bar.configure(mode="indeterminate"))
+                                    self.root.after(0, lambda: bar.start(10))
+                                    self.root.after(0, lambda: percent_lbl.configure(text="Downloading..."))
+                                    is_indeterminate[0] = True
                                 return
                             downloaded = block_num * block_size
                             percent = min(downloaded * 100 // total_size, 100)
-                            self.root.after(0, lambda: bar.configure(value=percent))
-                            self.root.after(0, lambda: percent_lbl.configure(text=f"{percent}%"))
+                            self.root.after(0, lambda p=percent: bar.configure(value=p))
+                            self.root.after(0, lambda p=percent: percent_lbl.configure(text=f"{p}%"))
                         
-                        installer_path = downloadpython()
+                        installer_path = downloadpython(reporthook=reporthook)
                         installer_path_ref[0] = installer_path
                         download_done[0] = True
                     except Exception as e:
@@ -581,6 +587,9 @@ class ProgramSetupApp:
                         pass
                 else:
                     return False
+        else:
+            if self.python_install_var.get():
+                messagebox.showinfo("Already Installed", "Python is already installed.", parent=self.root)
 
         if not CLOUDFLARED()[0]:
             if self.cloudflared_install_var.get():
@@ -613,13 +622,19 @@ class ProgramSetupApp:
                 
                 def run_download():
                     try:
+                        is_indeterminate = [False]
                         def reporthook(block_num, block_size, total_size):
                             if total_size <= 0:
+                                if not is_indeterminate[0]:
+                                    self.root.after(0, lambda: bar.configure(mode="indeterminate"))
+                                    self.root.after(0, lambda: bar.start(10))
+                                    self.root.after(0, lambda: percent_lbl.configure(text="Downloading..."))
+                                    is_indeterminate[0] = True
                                 return
                             downloaded = block_num * block_size
                             percent = min(downloaded * 100 // total_size, 100)
-                            self.root.after(0, lambda: bar.configure(value=percent))
-                            self.root.after(0, lambda: percent_lbl.configure(text=f"{percent}%"))
+                            self.root.after(0, lambda p=percent: bar.configure(value=p))
+                            self.root.after(0, lambda p=percent: percent_lbl.configure(text=f"{p}%"))
                         
                         import urllib.request as DOWNLOAD
                         appdata_dir = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or os.path.expanduser("~")
@@ -651,6 +666,9 @@ class ProgramSetupApp:
                         pass
                 else:
                     return False
+        else:
+            if self.cloudflared_install_var.get():
+                messagebox.showinfo("Already Installed", "Cloudflare is already installed.", parent=self.root)
 
         return True
 
@@ -876,14 +894,20 @@ class ProgramSetupApp:
         def run_download():
             zip_path = os.path.join(parent_dir, f"{GITHUB_EXTRACTED_DIR}.zip")
             
+            is_indeterminate = [False]
             def reporthook(block_num, block_size, total_size):
                 if total_size <= 0:
+                    if not is_indeterminate[0]:
+                        self.root.after(0, lambda: bar.configure(mode="indeterminate"))
+                        self.root.after(0, lambda: bar.start(10))
+                        self.root.after(0, lambda: percent_lbl.configure(text="Downloading..."))
+                        is_indeterminate[0] = True
                     return
                 downloaded = block_num * block_size
                 percent = min(downloaded * 100 // total_size, 100)
                 
-                self.root.after(0, lambda: bar.configure(value=percent))
-                self.root.after(0, lambda: percent_lbl.configure(text=f"{percent}%"))
+                self.root.after(0, lambda p=percent: bar.configure(value=p))
+                self.root.after(0, lambda p=percent: percent_lbl.configure(text=f"{p}%"))
                 
             try:
                 DOWNLOAD.urlretrieve(GITHUB_ZIP_URL, zip_path, reporthook=reporthook)

@@ -8,5 +8,6 @@ packages = [
     "waitress",
     "requests",
     "pymysql",
-    "apirlpy"
+    "apirlpy",
+    "rapidfuzz"
 ]
