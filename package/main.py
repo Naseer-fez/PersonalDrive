@@ -1,26 +1,24 @@
 """
-NasCloud — Unified Setup & Configuration Launcher
+NasCloud — Unified Setup & Server Application
 
-Seamlessly chains the Setup Wizard (Steps 1-3) into the
-Server Configuration GUI in a single process. This is the
-entry point for both development runs and the .exe build.
+Intelligently routes to either the Setup Wizard (if setup is incomplete)
+or directly to the Server Launcher GUI (if setup is complete).
+Bundled as a single self-contained application (NasCloud.exe).
 """
 import sys
 import os
-import subprocess
 import tkinter as tk
 
 try:
-    from pckconfig import config, APP_DISPLAY_NAME
+    from pckconfig import config, APP_DISPLAY_NAME, APP_VERSION, GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH
     from GUIsetup import ProgramSetupApp
     from GUIconfig import ServerConfigApp
+    from server_launcher import ServerLauncher
 except ImportError:
-    from package.pckconfig import config, APP_DISPLAY_NAME
+    from package.pckconfig import config, APP_DISPLAY_NAME, APP_VERSION, GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH
     from package.GUIsetup import ProgramSetupApp
     from package.GUIconfig import ServerConfigApp
-
-
-SERVER_EXE_NAME = "NasCloudServer.exe"
+    from package.server_launcher import ServerLauncher
 
 
 def _safe_print(msg):
@@ -33,10 +31,72 @@ def _safe_print(msg):
         pass
 
 
+def fetch_remote_config(root):
+    """Dynamically fetch urls.json from GitHub and update config if a new version/URL is found."""
+    def task():
+        import urllib.request
+        import json
+        try:
+            url = f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/{GITHUB_BRANCH}/urls.json"
+            req = urllib.request.Request(url, headers={'User-Agent': 'NasCloud-App/1.0'})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                
+                remote_version = data.get("version")
+                if remote_version and remote_version != APP_VERSION:
+                    def show_update():
+                        from tkinter import messagebox
+                        messagebox.showinfo(
+                            "New Version Available",
+                            f"A new version of {APP_DISPLAY_NAME} ({remote_version}) is available!\n\n"
+                            "Please download it from GitHub to get the latest features.",
+                            parent=root
+                        )
+                    root.after(2000, show_update)
+                    
+                central = data.get("central_server_url") or data.get("CENTRAL_SERVER_URL")
+                frontend = data.get("frontend_url") or data.get("DEFAULT_FRONTEND_URL")
+                
+                if central:
+                    config.set("central_server_url", central)
+                if frontend:
+                    config.set("URL", frontend)
+        except Exception as e:
+            _safe_print(f"Warning: Failed to fetch urls.json: {e}")
+            
+    import threading
+    threading.Thread(target=task, daemon=True).start()
+
+
+def is_setup_complete():
+    """Check if the user has already completed the initial setup."""
+    workspace = config.get("dir", "")
+    return bool(workspace and os.path.exists(workspace))
+
+
 def main():
     root = tk.Tk()
+    
+    # Start checking for urls.json remotely
+    fetch_remote_config(root)
+    
+    if is_setup_complete():
+        # Setup already complete — jump straight to Server Launcher
+        _safe_print(f"{APP_DISPLAY_NAME} setup is already complete. Launching Server.")
+        app = ServerLauncher(root)
+        root.mainloop()
+        sys.exit(0)
+
     setup_completed = False
     config_completed = False
+
+    def transition_to_server():
+        if not root.winfo_exists():
+            return
+        for widget in root.winfo_children():
+            widget.destroy()
+        _safe_print(f"Transitioning to {APP_DISPLAY_NAME} Server GUI...")
+        ServerLauncher(root)
 
     # ── Phase 1: Setup Wizard ──────────────────────────────
     def on_setup_complete(result):
@@ -82,9 +142,11 @@ def main():
                 def on_file_copy_complete(result):
                     nonlocal config_completed
                     config_completed = True
-                    _launch_server_exe()
+                    # Transition to ServerLauncher instead of launching separate exe
                     if root.winfo_exists():
-                        root.quit()
+                        for widget in root.winfo_children():
+                            widget.destroy()
+                        ServerLauncher(root)
                 
                 def on_file_copy_cancel():
                     root.destroy()
@@ -95,9 +157,10 @@ def main():
             root.after_idle(transition_to_file_copy)
         else:
             config_completed = True
-            _launch_server_exe()
             if root.winfo_exists():
-                root.quit()
+                for widget in root.winfo_children():
+                    widget.destroy()
+                ServerLauncher(root)
 
     def on_config_cancel():
         root.destroy()
@@ -112,41 +175,10 @@ def main():
 
     # Clean up the window after mainloop exits
     try:
-        root.destroy()
+        if root.winfo_exists():
+            root.destroy()
     except Exception:
         pass
-
-    if config_completed:
-        _safe_print(f"\n{APP_DISPLAY_NAME} setup and configuration complete!")
-        sys.exit(0)
-    else:
-        _safe_print("Configuration was cancelled by the user.")
-        sys.exit(1)
-
-
-def _launch_server_exe():
-    """Find and launch the NasCloud Server executable as a detached process."""
-    if getattr(sys, 'frozen', False):
-        # Running as a PyInstaller .exe — look next to the executable
-        exe_dir = os.path.dirname(sys.executable)
-    else:
-        # Running as a Python script — look in the same directory
-        exe_dir = os.path.dirname(os.path.abspath(__file__))
-
-    server_exe = os.path.join(exe_dir, SERVER_EXE_NAME)
-    if os.path.exists(server_exe):
-        try:
-            # Launch as a fully detached process
-            subprocess.Popen(
-                [server_exe],
-                creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
-                close_fds=True
-            )
-            _safe_print(f"Launched {SERVER_EXE_NAME} from: {server_exe}")
-        except Exception as e:
-            _safe_print(f"Failed to launch {SERVER_EXE_NAME}: {e}")
-    else:
-        _safe_print(f"{SERVER_EXE_NAME} not found in {exe_dir} — skipping auto-launch.")
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
-import urllib.request as DOWNLOAD
 import os
 import sys
 import zipfile
+import shutil
 from pathlib import Path
 
 try:
@@ -15,6 +15,23 @@ def get_workspace_dir():
     """Dynamically get the workspace directory path."""
     return config.get("workspace_path") or config.get("dir") or os.path.join(os.getcwd(), GITHUB_REPO)
 
+def get_local_bin_dir():
+    """Get the immutable AppData bin directory for portable binaries."""
+    appdata_dir = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or os.path.expanduser("~")
+    return os.path.normpath(os.path.join(appdata_dir, "NasCloud", "bin"))
+
+def get_asset_path(filename):
+    """Resolve offline asset filepath in development or PyInstaller frozen state."""
+    if getattr(sys, 'frozen', False):
+        base_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    else:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    asset_path = os.path.join(base_dir, "assets", filename)
+    if not os.path.exists(asset_path):
+        asset_path = os.path.join(base_dir, filename)
+    return asset_path
+
 def find_executable(name):
     """Fast check for executable in system PATH without spawning subprocesses."""
     path_env = os.environ.get("PATH", "")
@@ -27,6 +44,11 @@ def find_executable(name):
     return None
 
 def checkpython():
+    # 0. Check AppData Local NasCloud bin check (portable Python environment)
+    bin_py = os.path.join(get_local_bin_dir(), "python.exe")
+    if os.path.exists(bin_py):
+        return True, "local_python", os.path.normpath(bin_py)
+
     # 1. Instant check: use the currently running Python interpreter path
     #    Skip this when running as a PyInstaller .exe (sys.executable is the bundle)
     if not getattr(sys, 'frozen', False):
@@ -40,7 +62,6 @@ def checkpython():
             return True, command, exe
 
     # 3. Direct Windows standard installation directories search
-    # (Crucial for detecting Python right after installing it before env PATH is reloaded)
     if os.name == "nt":
         user_profile = os.environ.get("USERPROFILE") or os.path.expanduser("~")
         local_appdata = os.environ.get("LOCALAPPDATA") or os.path.join(user_profile, "AppData", "Local")
@@ -62,7 +83,6 @@ def checkpython():
         if os.path.exists(pf_x86_py):
             search_dirs.append(pf_x86_py)
             
-        # Search direct subdirectories (e.g. Python312, Python311 etc.)
         for base_dir in search_dirs:
             if os.path.isdir(base_dir):
                 try:
@@ -75,7 +95,6 @@ def checkpython():
                 except Exception:
                     pass
                     
-        # Check root C:\ drive folders starting with Python
         try:
             for entry in os.listdir("C:\\"):
                 if entry.lower().startswith("python"):
@@ -89,19 +108,18 @@ def checkpython():
 
 def checkcloudflared():
     # 1. AppData Local NasCloud bin check
-    appdata_dir = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or os.path.expanduser("~")
-    local_cf = os.path.normpath(os.path.join(appdata_dir, "NasCloud", "bin", CLOUDFLARED_EXE))
-    if os.path.exists(local_cf):
+    local_cf = os.path.normpath(os.path.join(get_local_bin_dir(), CLOUDFLARED_EXE))
+    if os.path.exists(local_cf) and os.path.getsize(local_cf) > 1000000:
         return True, "local_cloudflared", local_cf
 
     # 2. Workspace path check
     workspace_cf = os.path.join(get_workspace_dir(), CLOUDFLARED_EXE)
-    if os.path.exists(workspace_cf):
+    if os.path.exists(workspace_cf) and os.path.getsize(workspace_cf) > 1000000:
         return True, "workspace_cloudflared", os.path.normpath(workspace_cf)
         
     # 3. PATH lookup
     exe = find_executable("cloudflared")
-    if exe:
+    if exe and os.path.getsize(exe) > 1000000:
         return True, "cloudflared", exe
         
     return False, None, None
@@ -121,37 +139,51 @@ def progress(block_num, block_size, total_size):
         return
     downloaded = block_num * block_size
     percent = min(downloaded * 100 / total_size, 100)
-    print(f"\rDownloading... {percent:.1f}%", end="")
+    print(f"\rExtracting... {percent:.1f}%", end="")
+
+def extractpython(reporthook=None):
+    """Extract bundled python_env.zip into %LOCALAPPDATA%/NasCloud/bin/."""
+    bin_dir = get_local_bin_dir()
+    os.makedirs(bin_dir, exist_ok=True)
+    zip_path = get_asset_path("python_env.zip")
+    
+    if not os.path.exists(zip_path):
+        raise FileNotFoundError(f"Bundled Python archive not found at: {zip_path}")
+        
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        members = zip_ref.infolist()
+        total_count = len(members)
+        for idx, member in enumerate(members):
+            zip_ref.extract(member, bin_dir)
+            if reporthook and total_count > 0:
+                reporthook(idx + 1, 1, total_count)
+                
+    python_exe = os.path.join(bin_dir, "python.exe")
+    return python_exe
+
+def extractcloudflared(reporthook=None):
+    """Copy bundled cloudflared.exe directly into %LOCALAPPDATA%/NasCloud/bin/."""
+    bin_dir = get_local_bin_dir()
+    os.makedirs(bin_dir, exist_ok=True)
+    src_path = get_asset_path(CLOUDFLARED_EXE)
+    
+    if not os.path.exists(src_path):
+        raise FileNotFoundError(f"Bundled cloudflared binary not found at: {src_path}")
+        
+    target_path = os.path.join(bin_dir, CLOUDFLARED_EXE)
+    shutil.copy2(src_path, target_path)
+    if reporthook:
+        reporthook(1, 1, 1)
+        
+    return target_path
 
 def downloadpython(reporthook=None):
-    """Download Python installer. Returns the installer path for the user to run."""
-    arch = getarch()
-    if arch == "AMD64":
-        URL = f"https://www.python.org/ftp/python/{PYTHON_VERSION}/python-{PYTHON_VERSION}-amd64.exe"
-    elif arch == "x86":
-        URL = f"https://www.python.org/ftp/python/{PYTHON_VERSION}/python-{PYTHON_VERSION}.exe"
-    elif arch == "ARM64":
-        URL = f"https://www.python.org/ftp/python/{PYTHON_VERSION}/python-{PYTHON_VERSION}-arm64.exe"
-    else:
-        URL = f"https://www.python.org/ftp/python/{PYTHON_VERSION}/python-{PYTHON_VERSION}-amd64.exe"
-       
-    Filename = os.path.join(get_workspace_dir(), "python-installer.exe")
-    if reporthook is None:
-        reporthook = progress
-    DOWNLOAD.urlretrieve(URL, Filename, reporthook=reporthook)
-    return Filename
+    """Offline alias for extractpython"""
+    return extractpython(reporthook=reporthook)
 
 def downloadcloudflared():
-    """Download cloudflared directly into the AppData local bin directory."""
-    appdata_dir = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or os.path.expanduser("~")
-    bin_dir = os.path.join(appdata_dir, "NasCloud", "bin")
-    os.makedirs(bin_dir, exist_ok=True)
-    
-    target_path = os.path.join(bin_dir, CLOUDFLARED_EXE)
-    URL = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
-    
-    DOWNLOAD.urlretrieve(URL, target_path, reporthook=progress)
-    return target_path
+    """Offline alias for extractcloudflared"""
+    return extractcloudflared()
 
 def downloadngrok():
     """Deprecated alias for downloadcloudflared"""
@@ -184,3 +216,4 @@ def CLOUDFLARED():
 def NGROK():
     """Deprecated alias for CLOUDFLARED"""
     return CLOUDFLARED()
+

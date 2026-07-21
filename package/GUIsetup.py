@@ -19,7 +19,7 @@ try:
         NGROK_SIGNUP_URL, NGROK_DASHBOARD_URL, PYTHON_EXE, NGROK_EXE, CLOUDFLARED_EXE,
         apply_google_light_theme, get_resource_path
     )
-    from installdepen import PYTHON, NGROK, CLOUDFLARED, downloadpython
+    from installdepen import PYTHON, NGROK, CLOUDFLARED, extractpython, extractcloudflared, get_asset_path
 except ImportError:
     from package.pckconfig import (
         config, APP_NAME, APP_DISPLAY_NAME,
@@ -29,7 +29,7 @@ except ImportError:
         NGROK_SIGNUP_URL, NGROK_DASHBOARD_URL, PYTHON_EXE, NGROK_EXE, CLOUDFLARED_EXE,
         apply_google_light_theme, get_resource_path
     )
-    from package.installdepen import PYTHON, NGROK, CLOUDFLARED, downloadpython
+    from package.installdepen import PYTHON, NGROK, CLOUDFLARED, extractpython, extractcloudflared, get_asset_path
 
 class ProgramSetupApp:
     def __init__(self, root, start_screen=None, on_complete=None, on_cancel=None):
@@ -477,7 +477,7 @@ class ProgramSetupApp:
             if not self.python_install_var.get():
                 should_install = messagebox.askyesno(
                     "Python Required",
-                    "Python was not detected on your system.\n\nWould you like to download and install Python 3.12 now?",
+                    "Python was not detected on your system.\n\nWould you like to extract the bundled portable Python environment now?",
                     parent=self.root
                 )
                 if should_install:
@@ -485,7 +485,7 @@ class ProgramSetupApp:
 
             if self.python_install_var.get():
                 progress_dialog = tk.Toplevel(self.root)
-                progress_dialog.title("Downloading Python")
+                progress_dialog.title("Extracting Python")
                 progress_dialog.geometry("400x130")
                 progress_dialog.resizable(False, False)
                 progress_dialog.grab_set()
@@ -498,7 +498,7 @@ class ProgramSetupApp:
                 y = (self.root.winfo_y() + (self.root.winfo_height() // 2)) - (h // 2)
                 progress_dialog.geometry(f'{w}x{h}+{x}+{y}')
                 
-                lbl = ttk.Label(progress_dialog, text="Downloading Python 3.12 installer...")
+                lbl = ttk.Label(progress_dialog, text="Extracting portable Python environment...")
                 lbl.pack(pady=(15, 5))
                 
                 bar = ttk.Progressbar(progress_dialog, length=300, mode="determinate")
@@ -507,66 +507,37 @@ class ProgramSetupApp:
                 percent_lbl = ttk.Label(progress_dialog, text="0%")
                 percent_lbl.pack()
                 
-                download_done = [False]
-                download_error = [None]
-                installer_path_ref = [None]
+                extract_done = [False]
+                extract_error = [None]
                 
-                def run_download():
+                def run_extraction():
                     try:
-                        is_indeterminate = [False]
-                        def reporthook(block_num, block_size, total_size):
-                            if total_size <= 0:
-                                if not is_indeterminate[0]:
-                                    self.root.after(0, lambda: bar.configure(mode="indeterminate"))
-                                    self.root.after(0, lambda: bar.start(10))
-                                    self.root.after(0, lambda: percent_lbl.configure(text="Downloading..."))
-                                    is_indeterminate[0] = True
+                        def reporthook(current, block_size, total):
+                            if total <= 0:
                                 return
-                            downloaded = block_num * block_size
-                            percent = min(downloaded * 100 // total_size, 100)
+                            percent = min(current * 100 // total, 100)
                             self.root.after(0, lambda p=percent: bar.configure(value=p))
                             self.root.after(0, lambda p=percent: percent_lbl.configure(text=f"{p}%"))
                         
-                        installer_path = downloadpython(reporthook=reporthook)
-                        installer_path_ref[0] = installer_path
-                        download_done[0] = True
+                        py_path = extractpython(reporthook=reporthook)
+                        config.set("python", py_path)
+                        extract_done[0] = True
                     except Exception as e:
-                        download_error[0] = str(e)
+                        extract_error[0] = str(e)
                     finally:
                         self.root.after(0, progress_dialog.destroy)
                         
-                threading.Thread(target=run_download, daemon=True).start()
+                threading.Thread(target=run_extraction, daemon=True).start()
                 self.root.wait_window(progress_dialog)
                 
-                if download_error[0] or not download_done[0]:
-                    messagebox.showerror("Error", f"Failed to download Python:\n{download_error[0]}", parent=self.root)
+                if extract_error[0] or not extract_done[0]:
+                    messagebox.showerror("Error", f"Failed to extract Python environment:\n{extract_error[0]}", parent=self.root)
                     return False
-                
-                messagebox.showinfo(
-                    "Launch Installer",
-                    "Python installer downloaded successfully.\n\n"
-                    "We will now launch the installation wizard.\n\n"
-                    "⚠️ IMPORTANT: Make sure to check the box 'Add Python.exe to PATH' at the bottom of the installer window, then click 'Install Now'.",
-                    parent=self.root
-                )
-                
-                try:
-                    import subprocess
-                    subprocess.run([installer_path_ref[0]], check=True)
-                except Exception as e:
-                    messagebox.showerror("Error", f"Failed to run Python installer: {e}", parent=self.root)
-                    return False
-                
-                try:
-                    if os.path.exists(installer_path_ref[0]):
-                        os.remove(installer_path_ref[0])
-                except Exception:
-                    pass
                 
                 if not PYTHON()[0]:
                     messagebox.showerror(
                         "Python Not Found",
-                        "Python installation could not be detected. Please locate it manually.",
+                        "Python installation could not be detected after extraction. Please locate it manually.",
                         parent=self.root
                     )
                     selected_path = self.ask_manual_path("Python", PYTHON_EXE)
@@ -594,13 +565,12 @@ class ProgramSetupApp:
         if not CLOUDFLARED()[0]:
             if self.cloudflared_install_var.get():
                 progress_dialog = tk.Toplevel(self.root)
-                progress_dialog.title("Downloading Cloudflare")
+                progress_dialog.title("Extracting Cloudflare")
                 progress_dialog.geometry("400x130")
                 progress_dialog.resizable(False, False)
                 progress_dialog.grab_set()
                 progress_dialog.configure(bg="#ffffff")
                 
-                # Center progress dialog
                 progress_dialog.update_idletasks()
                 w = progress_dialog.winfo_width()
                 h = progress_dialog.winfo_height()
@@ -608,7 +578,7 @@ class ProgramSetupApp:
                 y = (self.root.winfo_y() + (self.root.winfo_height() // 2)) - (h // 2)
                 progress_dialog.geometry(f'{w}x{h}+{x}+{y}')
                 
-                lbl = ttk.Label(progress_dialog, text="Downloading cloudflared.exe...")
+                lbl = ttk.Label(progress_dialog, text="Extracting cloudflared.exe...")
                 lbl.pack(pady=(15, 5))
                 
                 bar = ttk.Progressbar(progress_dialog, length=300, mode="determinate")
@@ -617,44 +587,29 @@ class ProgramSetupApp:
                 percent_lbl = ttk.Label(progress_dialog, text="0%")
                 percent_lbl.pack()
                 
-                download_done = [False]
-                download_error = [None]
+                extract_done = [False]
+                extract_error = [None]
                 
-                def run_download():
+                def run_extraction():
                     try:
-                        is_indeterminate = [False]
-                        def reporthook(block_num, block_size, total_size):
-                            if total_size <= 0:
-                                if not is_indeterminate[0]:
-                                    self.root.after(0, lambda: bar.configure(mode="indeterminate"))
-                                    self.root.after(0, lambda: bar.start(10))
-                                    self.root.after(0, lambda: percent_lbl.configure(text="Downloading..."))
-                                    is_indeterminate[0] = True
-                                return
-                            downloaded = block_num * block_size
-                            percent = min(downloaded * 100 // total_size, 100)
-                            self.root.after(0, lambda p=percent: bar.configure(value=p))
-                            self.root.after(0, lambda p=percent: percent_lbl.configure(text=f"{p}%"))
+                        def reporthook(current, block_size, total):
+                            percent = 100
+                            self.root.after(0, lambda: bar.configure(value=percent))
+                            self.root.after(0, lambda: percent_lbl.configure(text="100%"))
                         
-                        import urllib.request as DOWNLOAD
-                        appdata_dir = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or os.path.expanduser("~")
-                        bin_dir = os.path.join(appdata_dir, "NasCloud", "bin")
-                        os.makedirs(bin_dir, exist_ok=True)
-                        target_path = os.path.join(bin_dir, CLOUDFLARED_EXE)
-                        url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
-                        DOWNLOAD.urlretrieve(url, target_path, reporthook=reporthook)
-                        config.set("cloudflared", target_path)
-                        download_done[0] = True
+                        cf_path = extractcloudflared(reporthook=reporthook)
+                        config.set("cloudflared", cf_path)
+                        extract_done[0] = True
                     except Exception as e:
-                        download_error[0] = str(e)
+                        extract_error[0] = str(e)
                     finally:
                         self.root.after(0, progress_dialog.destroy)
                         
-                threading.Thread(target=run_download, daemon=True).start()
+                threading.Thread(target=run_extraction, daemon=True).start()
                 self.root.wait_window(progress_dialog)
                 
-                if download_error[0]:
-                    messagebox.showerror("Error", f"Failed to download Cloudflare:\n{download_error[0]}")
+                if extract_error[0]:
+                    messagebox.showerror("Error", f"Failed to extract Cloudflare:\n{extract_error[0]}")
                     return False
             else:
                 messagebox.showerror("Error", "Looks like Cloudflare is not installed. Please locate it manually.")
@@ -870,7 +825,7 @@ class ProgramSetupApp:
             return
             
         progress_dialog = tk.Toplevel(self.root)
-        progress_dialog.title("Downloading Code Server")
+        progress_dialog.title("Extracting Code Server")
         progress_dialog.geometry("400x130")
         progress_dialog.resizable(False, False)
         progress_dialog.grab_set()
@@ -882,7 +837,7 @@ class ProgramSetupApp:
         y = (self.root.winfo_y() + (self.root.winfo_height() // 2)) - (height // 2)
         progress_dialog.geometry(f'{width}x{height}+{x}+{y}')
         
-        lbl = ttk.Label(progress_dialog, text=f"Downloading {APP_DISPLAY_NAME} source repository...")
+        lbl = ttk.Label(progress_dialog, text=f"Extracting {APP_DISPLAY_NAME} source repository...")
         lbl.pack(pady=(15, 5))
         
         bar = ttk.Progressbar(progress_dialog, length=300, mode="determinate")
@@ -891,38 +846,32 @@ class ProgramSetupApp:
         percent_lbl = ttk.Label(progress_dialog, text="0%")
         percent_lbl.pack()
         
-        def run_download():
-            zip_path = os.path.join(parent_dir, f"{GITHUB_EXTRACTED_DIR}.zip")
-            
-            is_indeterminate = [False]
-            def reporthook(block_num, block_size, total_size):
-                if total_size <= 0:
-                    if not is_indeterminate[0]:
-                        self.root.after(0, lambda: bar.configure(mode="indeterminate"))
-                        self.root.after(0, lambda: bar.start(10))
-                        self.root.after(0, lambda: percent_lbl.configure(text="Downloading..."))
-                        is_indeterminate[0] = True
-                    return
-                downloaded = block_num * block_size
-                percent = min(downloaded * 100 // total_size, 100)
-                
-                self.root.after(0, lambda p=percent: bar.configure(value=p))
-                self.root.after(0, lambda p=percent: percent_lbl.configure(text=f"{p}%"))
-                
+        def run_extraction():
+            zip_path = get_asset_path("backend_source.zip")
+            if not os.path.exists(zip_path):
+                self.root.after(0, lambda: [progress_dialog.destroy(), messagebox.showerror("Error", f"Bundled backend archive not found at: {zip_path}")])
+                return
+
             try:
-                DOWNLOAD.urlretrieve(GITHUB_ZIP_URL, zip_path, reporthook=reporthook)
-                
-                self.root.after(0, lambda: lbl.configure(text="Extracting project archive..."))
-                self.root.after(0, lambda: bar.configure(mode="indeterminate"))
-                self.root.after(0, lambda: bar.start(10))
-                
                 with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                    zip_ref.extractall(parent_dir)
-                    
-                os.remove(zip_path)
-                
+                    members = zip_ref.infolist()
+                    total_count = len(members)
+                    for idx, member in enumerate(members):
+                        zip_ref.extract(member, parent_dir)
+                        if total_count > 0:
+                            percent = min((idx + 1) * 100 // total_count, 100)
+                            self.root.after(0, lambda p=percent: bar.configure(value=p))
+                            self.root.after(0, lambda p=percent: percent_lbl.configure(text=f"{p}%"))
+
                 extracted_dir = os.path.normpath(os.path.join(parent_dir, GITHUB_EXTRACTED_DIR))
-                
+                if not os.path.exists(extracted_dir):
+                    # Fallback check if zip extracted into a different folder name or directly into parent_dir
+                    subdirs = [os.path.join(parent_dir, d) for d in os.listdir(parent_dir) if os.path.isdir(os.path.join(parent_dir, d))]
+                    if subdirs:
+                        extracted_dir = os.path.normpath(subdirs[0])
+                    else:
+                        extracted_dir = os.path.normpath(parent_dir)
+
                 # Clean up bloat listed in remove.txt
                 remove_file = os.path.join(extracted_dir, "remove.txt")
                 if os.path.exists(remove_file):
@@ -934,7 +883,6 @@ class ProgramSetupApp:
                                 if not entry or entry.startswith('#'):
                                     continue
                                 target = os.path.normpath(os.path.join(extracted_dir, entry))
-                                # Safety: only delete within the extracted directory
                                 if not target.startswith(extracted_dir):
                                     continue
                                 if os.path.isdir(target):
@@ -942,27 +890,26 @@ class ProgramSetupApp:
                                 elif os.path.isfile(target):
                                     os.remove(target)
                     except Exception:
-                        pass  # Non-critical — continue even if cleanup fails
-                    # Remove the remove.txt itself after processing
+                        pass
                     try:
                         os.remove(remove_file)
                     except Exception:
                         pass
                 
-                def finish_download():
+                def finish_extraction():
                     self.code_path_var.set(extracted_dir)
                     progress_dialog.destroy()
-                    messagebox.showinfo("Success", f"{APP_DISPLAY_NAME} downloaded and saved to:\n{extracted_dir}")
+                    messagebox.showinfo("Success", f"{APP_DISPLAY_NAME} extracted and saved to:\n{extracted_dir}")
                     
-                self.root.after(0, finish_download)
+                self.root.after(0, finish_extraction)
                 
             except Exception as e:
                 def show_error():
                     progress_dialog.destroy()
-                    messagebox.showerror("Error", f"Failed to download {APP_DISPLAY_NAME}:\n{e}")
+                    messagebox.showerror("Error", f"Failed to extract {APP_DISPLAY_NAME}:\n{e}")
                 self.root.after(0, show_error)
                 
-        threading.Thread(target=run_download, daemon=True).start()
+        threading.Thread(target=run_extraction, daemon=True).start()
 
     def open_help_dialog(self):
         dialog = tk.Toplevel(self.root)

@@ -18,7 +18,7 @@ import shutil
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ENTRY_POINT = os.path.join(SCRIPT_DIR, "main.py")
-EXE_NAME = "NasCloudSetup"
+EXE_NAME = "NasCloud"
 DIST_DIR = os.path.join(SCRIPT_DIR, "dist")
 BUILD_DIR = os.path.join(SCRIPT_DIR, "build")
 SPEC_FILE = os.path.join(SCRIPT_DIR, f"{EXE_NAME}.spec")
@@ -82,6 +82,7 @@ def build():
         "pckconfig",
         "GUIsetup",
         "GUIconfig",
+        "server_launcher",
         "installdepen",
         "packages",
         "pipinstaller",
@@ -101,6 +102,7 @@ def build():
         "--icon", os.path.join(SCRIPT_DIR, "nascloud.ico"),
         "--add-data", f"{os.path.join(SCRIPT_DIR, 'nascloud.ico')};.",
         "--add-data", f"{os.path.join(SCRIPT_DIR, 'nascloud.png')};.",
+        "--add-data", f"{os.path.join(SCRIPT_DIR, 'assets')};assets",
     ]
 
     # Add hidden imports

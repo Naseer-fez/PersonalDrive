@@ -233,7 +233,6 @@ class ServerConfigApp:
         # Help website link button
         help_btn = ttk.Label(
             sec_header_row,
-            text="Visit Website for Help",
             foreground="#1a73e8",
             cursor="hand2",
             font=("Segoe UI", 9, "underline")

@@ -62,11 +62,12 @@ class ServerLauncher:
         except Exception:
             pass
         self.workspace = config.get("dir", "")
-        self.python_path = config.get("python", "")
         
-        # Cloudflared bin setup
+        # Portable Binaries setup
         appdata_dir = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or os.path.expanduser("~")
         self.bin_dir = os.path.join(appdata_dir, "NasCloud", "bin")
+        local_py = os.path.join(self.bin_dir, "python.exe")
+        self.python_path = config.get("python", "") or (local_py if os.path.exists(local_py) else "")
         self.cloudflared_path = config.get("cloudflared", "") or os.path.join(self.bin_dir, "cloudflared.exe")
         
         self.host = config.get("host", DEFAULT_HOST)
@@ -258,65 +259,32 @@ class ServerLauncher:
             self.root.clipboard_append(url)
             self.log("URL copied to clipboard!", "success")
 
-    # ── Virtual Environment Setup ──────────────────────────
+    # ── Portable Python / Virtual Environment Setup ────────
     def _ensure_venv(self):
-        """Create virtual environment and install dependencies if needed."""
-        venv_python = os.path.join(self.workspace, "env", "Scripts", "python.exe")
+        """Validate Python environment and return executable path."""
+        # 1. Check configured python or AppData bin portable python
+        if self.python_path and os.path.exists(self.python_path):
+            self.log(f"Using Python environment: {self.python_path}", "success")
+            return self.python_path
 
+        local_py = os.path.join(self.bin_dir, "python.exe")
+        if os.path.exists(local_py):
+            self.python_path = local_py
+            try:
+                config.set("python", local_py)
+            except Exception:
+                pass
+            self.log(f"Using portable Python environment: {local_py}", "success")
+            return local_py
+
+        # 2. Legacy workspace virtual environment check
+        venv_python = os.path.join(self.workspace, "env", "Scripts", "python.exe")
         if os.path.exists(venv_python):
             self.log("Virtual environment found.", "success")
             return venv_python
 
-        self.log("Creating virtual environment...", "warning")
-
-        # Use the configured system python to create venv
-        python = self.python_path
-        if not python or not os.path.exists(python):
-            self.log("ERROR: Python path not configured. Run Setup first.", "error")
-            return None
-
-        try:
-            subprocess.run(
-                [python, "-m", "venv", os.path.join(self.workspace, "env")],
-                check=True, capture_output=True, text=True
-            )
-            self.log("Virtual environment created.", "success")
-        except subprocess.CalledProcessError as e:
-            self.log(f"ERROR: Failed to create venv: {e}", "error")
-            return None
-
-        # Ensure pip is available
-        self.log("Upgrading pip...", "info")
-        try:
-            subprocess.run(
-                [venv_python, "-m", "ensurepip", "--upgrade"],
-                check=True, capture_output=True, text=True
-            )
-        except subprocess.CalledProcessError:
-            self.log("WARNING: ensurepip failed, continuing anyway.", "warning")
-
-        # Install server dependencies
-        self.log("Installing server dependencies (this may take a minute)...", "info")
-        req_file = os.path.join(self.workspace, "requirements.txt")
-        try:
-            if os.path.exists(req_file):
-                subprocess.run(
-                    [venv_python, "-m", "pip", "install", "-r", req_file],
-                    check=True, capture_output=True, text=True,
-                    cwd=self.workspace
-                )
-            else:
-                subprocess.run(
-                    [venv_python, "-m", "pip", "install", *packages],
-                    check=True, capture_output=True, text=True,
-                    cwd=self.workspace
-                )
-            self.log("Dependencies installed successfully.", "success")
-        except subprocess.CalledProcessError as e:
-            self.log(f"ERROR: Failed to install dependencies: {e}", "error")
-            return None
-
-        return venv_python
+        self.log("ERROR: Python environment not found. Run Setup first.", "error")
+        return None
 
     # ── Ngrok URL Discovery ────────────────────────────────
     def _get_cloudflared_url(self):
@@ -337,7 +305,7 @@ class ServerLauncher:
         if not self.workspace or not os.path.isdir(self.workspace):
             self.log("ERROR: Workspace directory not found.", "error")
             self.log(f"  Path: {self.workspace}", "error")
-            self.log("Run NasCloudSetup.exe first to configure.", "error")
+            self.log("Run NasCloud.exe first to configure.", "error")
             self.set_status("Configuration Error", "#d93025")
             self.root.after(0, lambda: self.start_btn.config(state="normal"))
             self.root.after(0, lambda: self.stop_btn.config(state="disabled"))
@@ -422,21 +390,29 @@ class ServerLauncher:
 
         # ── Step 3: Ensure Cloudflared Binary exists ──
         self.set_status("Checking cloudflared...", "#b06000")
-        if not os.path.exists(self.cloudflared_path):
-            import shutil
-            find_cf = shutil.which("cloudflared") or shutil.which("cloudflared.exe")
-            if find_cf:
-                self.cloudflared_path = find_cf
-                self.log(f"Found cloudflared fallback in system PATH: {self.cloudflared_path}", "success")
-            else:
-                self.log("ERROR: cloudflared.exe not found. Please run NasCloudSetup.exe to install it.", "error")
-                self.set_status("● Running (Local Only)", "#1e8e3e")
-                self.log("─" * 45, "info")
-                self.log(f"{APP_DISPLAY_NAME} is ready (Local Only)!", "success")
-                self.log(f"  Local:  {local_url}", "info")
-                self.log("─" * 45, "info")
-                self.notify_central_server(local_url)
-                return
+        if not os.path.exists(self.cloudflared_path) or os.path.getsize(self.cloudflared_path) < 1000000:
+            try:
+                try:
+                    from installdepen import extractcloudflared
+                except ImportError:
+                    from package.installdepen import extractcloudflared
+                self.cloudflared_path = extractcloudflared()
+                self.log(f"Extracted valid cloudflared binary: {self.cloudflared_path}", "success")
+            except Exception as ex:
+                import shutil
+                find_cf = shutil.which("cloudflared") or shutil.which("cloudflared.exe")
+                if find_cf and os.path.exists(find_cf) and os.path.getsize(find_cf) > 1000000:
+                    self.cloudflared_path = find_cf
+                    self.log(f"Found cloudflared fallback in system PATH: {self.cloudflared_path}", "success")
+                else:
+                    self.log(f"ERROR: cloudflared.exe not found or invalid: {ex}", "error")
+                    self.set_status("● Running (Local Only)", "#1e8e3e")
+                    self.log("─" * 45, "info")
+                    self.log(f"{APP_DISPLAY_NAME} is ready (Local Only)!", "success")
+                    self.log(f"  Local:  {local_url}", "info")
+                    self.log("─" * 45, "info")
+                    self.notify_central_server(local_url)
+                    return
 
         # ── Step 4: Start Cloudflared Tunnel ──
         self.set_status("Connecting cloudflared...", "#b06000")
@@ -564,15 +540,19 @@ class ServerLauncher:
         api_key = config.get("api_key", "")
         access_code = config.get("access_code", "")
         opt_password = config.get("opt_password", "")
+        
+        # Use dynamically fetched URL if available, otherwise fallback to hardcoded
+        central_url = config.get("central_server_url") or CENTRAL_SERVER_URL
+        
         # If CENTRAL_SERVER_URL is not set or placeholder, skip
-        if not CENTRAL_SERVER_URL or "example.com" in CENTRAL_SERVER_URL:
+        if not central_url or "example.com" in central_url:
             self.log("Skipping Central Server notification: CENTRAL_SERVER_URL is a placeholder.", "info")
             return
 
         def task():
             import urllib.parse
-            self.log(f"Notifying Central Server ({CENTRAL_SERVER_URL})...", "info")
-            base_url = CENTRAL_SERVER_URL.rstrip('/')
+            self.log(f"Notifying Central Server ({central_url})...", "info")
+            base_url = central_url.rstrip('/')
             payload = json.dumps({
                 "api": api_key,
                 "link": server_url,
